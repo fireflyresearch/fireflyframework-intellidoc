@@ -18,10 +18,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyfly.container.stereotypes import component
+
 from fireflyframework_intellidoc.extraction.service import ExtractionService
 from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 
 
+@component
 class ExtractionStep:
     """Extracts structured data using the resolved catalog fields."""
 

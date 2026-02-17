@@ -104,6 +104,8 @@ Changelog = "https://github.com/fireflyframework/fireflyframework-intellidoc/blo
 
 [project.entry-points."pyfly.auto_configuration"]
 intellidoc = "fireflyframework_intellidoc.auto_configuration:IntelliDocAutoConfiguration"
+intellidoc-ingestion = "fireflyframework_intellidoc.ingestion.auto_configuration:IngestionAutoConfiguration"
+intellidoc-storage = "fireflyframework_intellidoc.storage.auto_configuration:StorageAutoConfiguration"
 intellidoc-cli = "fireflyframework_intellidoc.cli.auto_configuration:IntelliDocCLIAutoConfiguration"
 
 [build-system]

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyfly.container.stereotypes import component
+
 from fireflyframework_intellidoc.classification.service import (
     ClassificationService,
 )
@@ -25,6 +27,7 @@ from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 from fireflyframework_intellidoc.types import DocumentNature
 
 
+@component
 class ClassificationStep:
     """Classifies a document against the catalog."""
 

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from pyfly.container.bean import bean
 from pyfly.container.stereotypes import configuration
+from pyfly.core.config import Config
 from pyfly.context.conditions import conditional_on_property
 
 from fireflyframework_intellidoc.config import IntelliDocConfig
@@ -61,8 +62,8 @@ class IntelliDocAutoConfiguration:
     """Master auto-configuration for IntelliDoc."""
 
     @bean
-    def intellidoc_config(self) -> IntelliDocConfig:
-        return IntelliDocConfig()
+    def intellidoc_config(self, config: Config) -> IntelliDocConfig:
+        return config.bind(IntelliDocConfig)
 
     @bean
     def metrics_collector(self) -> MetricsCollector:

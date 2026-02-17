@@ -1,0 +1,11 @@
+pyfly:
+  shell:
+    enabled: true
+
+  intellidoc:
+    enabled: true
+    default_model: "anthropic:claude-sonnet-4-5-20250929"
+    storage_provider: "local"
+    storage_local_path: "./intellidoc-storage"
+    ingestion_local_enabled: true
+    ingestion_url_enabled: true

@@ -18,10 +18,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyfly.container.stereotypes import component
+
 from fireflyframework_intellidoc.ingestion.service import IngestionService
 from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 
 
+@component
 class IngestionStep:
     """Downloads/reads the file from the configured source adapter."""
 

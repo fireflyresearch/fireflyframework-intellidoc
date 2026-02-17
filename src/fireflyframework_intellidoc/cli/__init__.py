@@ -29,12 +29,25 @@ async def _boot_and_run() -> int:
     from pyfly.shell.ports.outbound import ShellRunnerPort
 
     from fireflyframework_intellidoc.cli.app import IntelliDocCLIApp
+    from fireflyframework_intellidoc.cli.shell_adapter import IntelliDocShellAdapter
 
     app = PyFlyApplication(IntelliDocCLIApp)
     await app.startup()
 
-    runner = app.context.resolve(ShellRunnerPort)
-    exit_code = runner.run_cli(sys.argv[1:])
+    # PyFly's shell auto-config may register the default ClickShellAdapter
+    # before IntelliDoc's CLI auto-config can provide IntelliDocShellAdapter.
+    # The default adapter has all @shell_component commands registered on it
+    # by pyfly's shell infrastructure. We create a branded adapter and copy
+    # the discovered commands onto it so we get --version + banner + commands.
+    base_runner = app.context.get_bean(ShellRunnerPort)
+    adapter = IntelliDocShellAdapter()
+
+    # Copy commands discovered by pyfly's shell infrastructure
+    if hasattr(base_runner, "_root") and hasattr(base_runner._root, "commands"):
+        for name, cmd in base_runner._root.commands.items():
+            adapter._root.add_command(cmd, name)
+
+    exit_code = adapter.run_cli(sys.argv[1:])
 
     await app.shutdown()
     return exit_code

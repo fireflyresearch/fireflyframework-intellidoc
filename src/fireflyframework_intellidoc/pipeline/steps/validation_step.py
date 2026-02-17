@@ -18,10 +18,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyfly.container.stereotypes import component
+
 from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 from fireflyframework_intellidoc.validation.service import ValidationService
 
 
+@component
 class ValidationStep:
     """Runs catalog-defined validators and field-level rules against extracted data."""
 

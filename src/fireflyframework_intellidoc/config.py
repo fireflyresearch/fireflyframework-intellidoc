@@ -22,7 +22,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from pyfly.core.config import config_properties
 
+
+@config_properties(prefix="pyfly.intellidoc")
 @dataclass
 class IntelliDocConfig:
     """Configuration properties bound from ``pyfly.intellidoc.*``.

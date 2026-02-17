@@ -18,10 +18,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyfly.container.stereotypes import component
+
 from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 from fireflyframework_intellidoc.splitting.service import SplittingService
 
 
+@component
 class SplittingStep:
     """Detects document boundaries in multi-document files."""
 

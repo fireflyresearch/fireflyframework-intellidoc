@@ -19,6 +19,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pyfly.container.stereotypes import component
+
 from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 from fireflyframework_intellidoc.results.domain.processing_result import (
     DocumentResult,
@@ -30,6 +32,7 @@ from fireflyframework_intellidoc.validation.service import ValidationService
 logger = logging.getLogger(__name__)
 
 
+@component
 class PersistenceStep:
     """Builds and persists DocumentResult from pipeline context."""
 
