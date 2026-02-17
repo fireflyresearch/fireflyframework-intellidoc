@@ -20,14 +20,16 @@ submission, job tracking, result retrieval, and analytics endpoints.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from fireflyframework_intellidoc.types import (
     DocumentConfidence,
+    DocumentNature,
     FieldType,
     JobStatus,
     ValidatorSeverity,
@@ -59,6 +61,58 @@ class TargetSchema(BaseModel):
     extraction_strategy: str = "single_pass"
 
 
+class AdHocDocumentType(BaseModel):
+    """Runtime document type definition for classification without a catalog."""
+
+    code: str
+    name: str = ""
+    description: str = ""
+    nature: str = ""
+
+
+# ── Runtime Conversion Utilities ─────────────────────────────────────
+
+
+def ad_hoc_to_document_type(ad_hoc: AdHocDocumentType) -> DocumentType:
+    """Convert an ad-hoc runtime type to a transient DocumentType."""
+    from fireflyframework_intellidoc.catalog.domain.document_type import (
+        DocumentType,
+    )
+
+    try:
+        nature = DocumentNature(ad_hoc.nature) if ad_hoc.nature else DocumentNature.OTHER
+    except ValueError:
+        nature = DocumentNature.OTHER
+
+    return DocumentType(
+        id=uuid4(),
+        code=ad_hoc.code,
+        name=ad_hoc.name or ad_hoc.code.replace("_", " ").title(),
+        description=ad_hoc.description,
+        nature=nature,
+    )
+
+
+def inline_field_to_catalog_field(field: InlineFieldDefinition) -> CatalogField:
+    """Convert an inline field definition to a transient CatalogField."""
+    from fireflyframework_intellidoc.catalog.domain.catalog_field import CatalogField
+
+    code = re.sub(r"[^a-z0-9_]", "_", field.name.lower().strip())
+    code = code.strip("_") or "field"
+    if not code[0].isalpha():
+        code = f"f_{code}"
+
+    return CatalogField(
+        id=uuid4(),
+        code=code,
+        display_name=field.display_name or field.name.replace("_", " ").title(),
+        field_type=field.field_type,
+        description=field.description,
+        required=field.required,
+        location_hint=field.location_hint,
+    )
+
+
 # ── Processing Submission DTOs ────────────────────────────────────────
 
 
@@ -75,7 +129,7 @@ class ProcessRequest(BaseModel):
 
     expected_type: str | None = Field(
         default=None,
-        description="Expected document type code (skips classification)",
+        description="Expected document type code (used as binary classification hint)",
     )
     expected_nature: str | None = Field(
         default=None,
@@ -88,6 +142,10 @@ class ProcessRequest(BaseModel):
     target_schema: TargetSchema | None = Field(
         default=None,
         description="Override extraction fields; if omitted, uses document type defaults",
+    )
+    document_types: list[AdHocDocumentType] = Field(
+        default_factory=list,
+        description="Ad-hoc document types for classification without a catalog",
     )
 
     tenant_id: str | None = None

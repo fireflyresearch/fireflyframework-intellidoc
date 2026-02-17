@@ -25,9 +25,10 @@
 
 ## Conceptual Overview
 
-fireflyframework-intellidoc is a catalog-driven Intelligent Document Processing (IDP) framework.
-Instead of hard-coding document types and extraction logic, everything is defined at runtime
-through a REST catalog and assembled dynamically by the pipeline.
+fireflyframework-intellidoc is a dynamic, catalog-optional Intelligent Document Processing (IDP) framework.
+Document types, extraction schemas, and validation rules can be defined through a REST catalog for
+precision and reusability, or provided entirely at runtime for maximum flexibility. The pipeline
+assembles classification and extraction prompts dynamically from whatever sources are available.
 
 ### Core Concepts
 
@@ -44,9 +45,14 @@ carry embedded validation rules.
 (email, IBAN) to cross-field logic (total = subtotal + tax) to VLM-powered visual checks
 (is a signature present?). They can be attached to document types or embedded directly in fields.
 
-**Target Schema** controls _which_ fields to extract for a given request. Users can pass explicit
-field codes in the `ProcessRequest`, or the system falls back to the document type's default
-fields. This makes extraction fully runtime-configurable without code changes.
+**Target Schema** controls _which_ fields to extract for a given request. Users can pass inline
+field definitions (ad-hoc schema), explicit catalog field codes, or rely on the document type's
+default fields. Inline fields take highest priority and require no catalog setup at all.
+
+**Ad-hoc Document Types** allow classification without a catalog. Users provide a list of type
+definitions (code, description, nature) at request time. These are merged with any catalog types
+to form the classification candidate list. When combined with `expected_type`, a single-type
+binary classification is performed ("is this document an invoice?").
 
 ### How It Works
 
@@ -59,10 +65,10 @@ fields. This makes extraction fully runtime-configurable without code changes.
 
 1. A document is **ingested** from a local file, URL, or cloud storage
 2. Pages are **preprocessed** — extracted from PDFs, rotated, enhanced, quality-scored
-3. Multi-page files are **split** into individual documents (page-based or VLM-powered)
-4. Each document is **classified** against the catalog of known document types
-5. **Target fields are resolved** — from the request's `target_schema`, or from the classified document type's defaults
-6. Fields are **extracted** by a VLM using a prompt built from the resolved `CatalogField` definitions
+3. Multi-page files are **split** into individual documents (whole-document default, page-based, or VLM-powered visual splitting)
+4. Each document is **classified** against available types (catalog types + ad-hoc types + synthesized types from `expected_type`). Classification is skipped when no types are available.
+5. **Target fields are resolved** — inline fields (highest priority) > catalog field codes > classified type's default fields (confidence-gated)
+6. Fields are **extracted** by a VLM using a prompt built from the resolved field definitions. For large documents (above the configurable `extraction_single_pass_threshold`), a memory-driven multi-pass architecture is used: comprehension batches process page groups and accumulate findings in working memory, then a synthesis pass produces the final structured output.
 7. Extracted data is **validated** against document-type validators and field-level rules
 8. Results are **persisted** with full audit trail, confidence scores, and validation outcomes
 
@@ -95,15 +101,16 @@ in the VLM prompt but are used by the validation engine and extraction service r
 
 ### Field Resolution Priority
 
-When a processing request arrives, the system resolves which fields to extract in this order:
+When a processing request arrives, the orchestrator resolves which fields to extract using a single priority chain:
 
-1. **Explicit `target_schema.field_codes`** from the request — highest priority
-2. **Document type `default_field_codes`** — used as fallback after classification identifies the type
-3. **Empty** — if neither is available, extraction is skipped
+1. **Inline fields** (`target_schema.inline_fields`) — highest priority. User-provided ad-hoc field definitions are converted to transient `CatalogField` objects. No catalog required.
+2. **Catalog field codes** (`target_schema.field_codes`) — resolved from the catalog by code.
+3. **Catalog defaults** — the classified document type's `default_field_codes` (only used when classification confidence meets the configured threshold and the type exists in the catalog).
+4. **Empty** — if none of the above yields fields, extraction is skipped.
 
-This design means the same document type can be processed differently depending on context:
-a quick scan might extract only `invoice_number` and `total_amount`, while a full audit
-extracts all 10 default fields.
+This design means the same document can be processed in completely different ways depending on context:
+a quick ad-hoc scan might use `--schema "total:currency"` with no catalog, while a production pipeline
+uses catalog-managed fields with validation rules.
 
 ### Validation Architecture
 
@@ -145,7 +152,7 @@ adapter implementations, the processing pipeline with flow diagrams, data flow t
 system, error handling hierarchy, observability (events, metrics, webhooks), and multi-tenancy.
 
 **Key sections:**
-- Design Philosophy (VLM-first, catalog-driven, hexagonal)
+- Design Philosophy (VLM-first, dynamic & catalog-optional, hexagonal)
 - Layered Architecture (exposure → services → domain → ports → adapters → auto-config)
 - Processing Pipeline (7-step flow with per-document fan-out)
 - Data Flow (visual diagram from request to result)
@@ -211,10 +218,14 @@ multi-model setups.
 | 5 | Lease Agreement | Multi-page legal documents, signature validation |
 | 6 | Custom Validators | Email, IBAN, regex, visual stamp, business rules |
 | 7 | Visual Splitting | Multi-document PDFs, VLM boundary detection |
-| 8 | Expected Type | Skip classification for known document sources |
+| 8 | Expected Type | Binary classification hint for known document sources |
 | 9 | Expected Nature | Narrow classification to a document category |
 | 10 | Inline Fields | Ad-hoc extraction with `target_schema.inline_fields` |
 | 11 | Field-Level Validation | Embedded `FieldValidationRule` on catalog fields |
+| 12 | CLI Dynamic Processing | All five pipeline modes from the command line |
+| 13 | Ad-Hoc Document Types | Runtime classification without a catalog |
+| 14 | Extraction-Only Mode | Schema-driven extraction with no classification |
+| 15 | Mixed Mode | Catalog types + ad-hoc types + inline schema |
 
 ### [Changelog](../CHANGELOG.md)
 

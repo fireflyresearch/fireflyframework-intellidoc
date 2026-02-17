@@ -20,6 +20,7 @@ with full dependency injection from the pyfly container.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -32,7 +33,92 @@ from fireflyframework_intellidoc.cli.output import format_result
 from fireflyframework_intellidoc.cli.progress import CLIProgress
 from fireflyframework_intellidoc.config import IntelliDocConfig
 from fireflyframework_intellidoc.pipeline.orchestrator import ProcessingOrchestrator
-from fireflyframework_intellidoc.results.exposure.schemas import TargetSchema
+from fireflyframework_intellidoc.results.exposure.schemas import (
+    AdHocDocumentType,
+    InlineFieldDefinition,
+    TargetSchema,
+)
+from fireflyframework_intellidoc.types import FieldType
+
+_VALID_FIELD_TYPES = {t.value for t in FieldType}
+
+
+def _parse_schema(schema_str: str) -> list[InlineFieldDefinition]:
+    """Parse ``--schema`` into InlineFieldDefinition objects.
+
+    Supports two formats:
+
+    * Inline notation: ``name:type,name:type``
+    * File reference:  ``@fields.json``
+    """
+    if schema_str.startswith("@"):
+        path = Path(schema_str[1:])
+        if not path.exists():
+            console.print(f"  [error]✗[/error] Schema file not found: {path}")
+            sys.exit(1)
+        data = json.loads(path.read_text())
+        return [InlineFieldDefinition(**item) for item in data]
+
+    fields: list[InlineFieldDefinition] = []
+    for pair in schema_str.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if ":" not in pair:
+            console.print(
+                f"  [error]✗[/error] Invalid schema entry '{pair}'"
+                " — expected name:type"
+            )
+            sys.exit(1)
+        name, ftype = pair.split(":", 1)
+        name, ftype = name.strip(), ftype.strip()
+        if ftype not in _VALID_FIELD_TYPES:
+            console.print(
+                f"  [error]✗[/error] Unknown field type '{ftype}'"
+                f" — valid types: {', '.join(sorted(_VALID_FIELD_TYPES))}"
+            )
+            sys.exit(1)
+        fields.append(
+            InlineFieldDefinition(
+                name=name,
+                display_name=name.replace("_", " ").title(),
+                field_type=FieldType(ftype),
+            )
+        )
+    return fields
+
+
+def _parse_document_types(types_str: str) -> list[AdHocDocumentType]:
+    """Parse ``--document-types`` into AdHocDocumentType objects.
+
+    Supports two formats:
+
+    * Inline notation: ``code:description,code:description``
+    * File reference:  ``@types.json``
+    """
+    if types_str.startswith("@"):
+        path = Path(types_str[1:])
+        if not path.exists():
+            console.print(
+                f"  [error]✗[/error] Document types file not found: {path}"
+            )
+            sys.exit(1)
+        data = json.loads(path.read_text())
+        return [AdHocDocumentType(**item) for item in data]
+
+    types: list[AdHocDocumentType] = []
+    for pair in types_str.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if ":" in pair:
+            code, description = pair.split(":", 1)
+            code, description = code.strip(), description.strip()
+        else:
+            code, description = pair.strip(), ""
+        types.append(AdHocDocumentType(code=code, description=description))
+    return types
+
 
 # Provider → environment variable mapping
 _API_KEY_ENV_VARS: dict[str, str] = {
@@ -90,7 +176,9 @@ class ProcessCommands:
     @shell_option("model", help="VLM model in provider:model format (e.g. openai:gpt-4o)", default="")
     @shell_option("api-key", help="API key (or set via env var: OPENAI_API_KEY, etc.)", default="")
     @shell_option("fields", help="Target fields to extract (comma-separated codes)", default="")
-    @shell_option("expected-type", help="Skip classification — assume this document type code", default="")
+    @shell_option("schema", help="Inline extraction schema: name:type,... or @file.json", default="")
+    @shell_option("document-types", help="Ad-hoc types: code:desc,... or @file.json", default="")
+    @shell_option("expected-type", help="Expected document type code (binary classification hint)", default="")
     @shell_option("expected-nature", help="Narrow classification to this nature", default="")
     @shell_option("splitting-strategy", help="Splitting strategy: visual or page_based", default="")
     @shell_option("format", help="Output format: json, table, csv", default="json")
@@ -103,6 +191,8 @@ class ProcessCommands:
         model: str = "",
         api_key: str = "",
         fields: str = "",
+        schema: str = "",
+        document_types: str = "",
         expected_type: str = "",
         expected_nature: str = "",
         splitting_strategy: str = "",
@@ -128,8 +218,14 @@ class ProcessCommands:
 
         # Build target schema
         target_schema = None
-        if fields:
-            target_schema = TargetSchema(field_codes=fields.split(","))
+        if fields or schema:
+            target_schema = TargetSchema(
+                field_codes=fields.split(",") if fields else [],
+                inline_fields=_parse_schema(schema) if schema else [],
+            )
+
+        # Parse ad-hoc document types
+        ad_hoc_types = _parse_document_types(document_types) if document_types else None
 
         # Progress bar
         progress = CLIProgress(file_path.name, quiet=quiet)
@@ -144,6 +240,7 @@ class ProcessCommands:
                 expected_nature=expected_nature or None,
                 splitting_strategy=splitting_strategy or None,
                 target_schema=target_schema,
+                document_types=ad_hoc_types,
             )
 
             progress.finish(result.job.status.value)
@@ -168,7 +265,9 @@ class ProcessCommands:
     @shell_option("model", help="VLM model in provider:model format", default="")
     @shell_option("api-key", help="API key", default="")
     @shell_option("fields", help="Target fields (comma-separated codes)", default="")
-    @shell_option("expected-type", help="Assume this document type for all files", default="")
+    @shell_option("schema", help="Inline extraction schema: name:type,... or @file.json", default="")
+    @shell_option("document-types", help="Ad-hoc types: code:desc,... or @file.json", default="")
+    @shell_option("expected-type", help="Expected type for all files (binary classification hint)", default="")
     @shell_option("format", help="Output format: json, table, csv", default="json")
     @shell_option("output", help="Output directory for results", default="")
     @shell_option("parallel", help="Max parallel documents", default=4)
@@ -180,6 +279,8 @@ class ProcessCommands:
         model: str = "",
         api_key: str = "",
         fields: str = "",
+        schema: str = "",
+        document_types: str = "",
         expected_type: str = "",
         format: str = "json",
         output: str = "",
@@ -209,7 +310,14 @@ class ProcessCommands:
         if key:
             _set_api_key_env(effective_model, key)
 
-        target_schema = TargetSchema(field_codes=fields.split(",")) if fields else None
+        target_schema = None
+        if fields or schema:
+            target_schema = TargetSchema(
+                field_codes=fields.split(",") if fields else [],
+                inline_fields=_parse_schema(schema) if schema else [],
+            )
+        ad_hoc_types = _parse_document_types(document_types) if document_types else None
+
         output_dir = Path(output) if output else None
         if output_dir:
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -234,6 +342,7 @@ class ProcessCommands:
                     filename=file_path.name,
                     expected_type=expected_type or None,
                     target_schema=target_schema,
+                    document_types=ad_hoc_types,
                 )
                 progress.finish(result.job.status.value)
 

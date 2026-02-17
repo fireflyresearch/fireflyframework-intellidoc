@@ -222,7 +222,7 @@ pyfly:
     # Processing
     max_file_size_mb: 100
     max_pages_per_file: 500
-    default_splitting_strategy: "visual"
+    default_splitting_strategy: "whole_document"  # or "visual" for multi-document files
     default_confidence_threshold: 0.7
     parallel_documents: 4
 

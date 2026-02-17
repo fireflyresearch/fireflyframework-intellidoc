@@ -63,7 +63,7 @@ class ValidationService:
         self,
         pages: list[PageImage],
         extracted_data: dict[str, Any],
-        document_type_id: UUID,
+        document_type_id: UUID | None = None,
         *,
         resolved_fields: list[CatalogField] | None = None,
     ) -> list[ValidationResult]:
@@ -74,8 +74,12 @@ class ValidationService:
         """
         results: list[ValidationResult] = []
 
-        # 1. Document-type validators
-        doc_type = await self._doc_types.find_by_id(document_type_id)
+        # 1. Document-type validators (only if document_type_id provided)
+        doc_type = (
+            await self._doc_types.find_by_id(document_type_id)
+            if document_type_id
+            else None
+        )
         if doc_type is not None and doc_type.validator_ids:
             definitions = await self._validators.find_by_ids(doc_type.validator_ids)
 

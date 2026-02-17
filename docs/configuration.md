@@ -47,7 +47,7 @@ pyfly:
 |----------|------|---------|-------------|
 | `max_pages_per_file` | int | `500` | Maximum pages per file |
 | `max_file_size_mb` | int | `100` | Maximum file size in MB |
-| `default_splitting_strategy` | string | `visual` | Default splitting strategy: `page_based`, `visual` |
+| `default_splitting_strategy` | string | `whole_document` | Default splitting strategy: `whole_document`, `page_based`, `visual` |
 | `default_dpi` | int | `300` | DPI for PDF→image conversion |
 | `parallel_documents` | int | `5` | Max parallel document processing |
 
@@ -84,7 +84,7 @@ pyfly:
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `default_confidence_threshold` | float | `0.7` | Minimum classification confidence. Per-document-type thresholds override this. |
+| `default_confidence_threshold` | float | `0.7` | Minimum classification confidence for resolving catalog default fields. When confidence falls below this threshold, catalog default fields are not used (inline fields and explicit field codes are unaffected). |
 | `max_classification_candidates` | int | `5` | Maximum classification candidates returned |
 
 ## Extraction
@@ -92,6 +92,8 @@ pyfly:
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `extraction_strategy` | string | `single_pass` | Extraction strategy |
+| `extraction_pages_per_batch` | int | `5` | Pages per comprehension batch in multi-pass extraction |
+| `extraction_single_pass_threshold` | int | `10` | Page count threshold — documents with this many pages or fewer use single-pass extraction; above this threshold, multi-pass memory-driven extraction is used |
 | `max_extraction_retries` | int | `2` | Retry count for extraction failures |
 
 ## Storage
@@ -221,9 +223,11 @@ The CLI also resolves API keys automatically from flags, environment variables, 
 |----------|----------------|-------------|
 | `--model` | `default_model` | VLM model for all stages |
 | `--api-key` | N/A | Set via env var (see below) |
-| `--splitting-strategy` | `default_splitting_strategy` | `visual` or `page_based` |
-| `--fields` | N/A | Runtime target schema override |
-| `--expected-type` | N/A | Runtime classification override |
+| `--splitting-strategy` | `default_splitting_strategy` | `whole_document`, `page_based`, or `visual` |
+| `--fields` | N/A | Catalog field codes to extract |
+| `--schema` | N/A | Inline extraction schema (`name:type,...` or `@file.json`) |
+| `--document-types` | N/A | Ad-hoc types for classification (`code:desc,...` or `@file.json`) |
+| `--expected-type` | N/A | Binary classification hint |
 | `--parallel` | `parallel_documents` | Batch parallelism |
 
 ### API Key Resolution Order
@@ -267,7 +271,7 @@ pyfly:
     storage_provider: "local"
     storage_local_path: "./data/storage"
     temp_dir: "./data/temp"
-    default_splitting_strategy: "page_based"
+    default_splitting_strategy: "whole_document"
 ```
 
 ### Production (AWS)

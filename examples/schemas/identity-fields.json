@@ -1,0 +1,41 @@
+[
+  {
+    "name": "full_name",
+    "display_name": "Full Name",
+    "field_type": "text",
+    "description": "The full name of the document holder",
+    "required": true
+  },
+  {
+    "name": "date_of_birth",
+    "display_name": "Date of Birth",
+    "field_type": "date",
+    "description": "The date of birth of the document holder",
+    "required": true
+  },
+  {
+    "name": "document_number",
+    "display_name": "Document Number",
+    "field_type": "text",
+    "description": "The unique document identifier (passport number, license number, etc.)",
+    "required": true
+  },
+  {
+    "name": "nationality",
+    "display_name": "Nationality",
+    "field_type": "text",
+    "description": "The nationality or country of issuance"
+  },
+  {
+    "name": "expiry_date",
+    "display_name": "Expiry Date",
+    "field_type": "date",
+    "description": "The document expiration date"
+  },
+  {
+    "name": "gender",
+    "display_name": "Gender",
+    "field_type": "text",
+    "description": "Gender as printed on the document"
+  }
+]

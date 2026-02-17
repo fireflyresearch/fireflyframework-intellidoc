@@ -1,0 +1,35 @@
+[
+  {
+    "name": "amount",
+    "display_name": "Amount",
+    "field_type": "currency",
+    "description": "The total monetary amount",
+    "required": true
+  },
+  {
+    "name": "date",
+    "display_name": "Date",
+    "field_type": "date",
+    "description": "The primary date on the document",
+    "required": true
+  },
+  {
+    "name": "vendor",
+    "display_name": "Vendor / Issuer",
+    "field_type": "text",
+    "description": "The company or entity that issued the document",
+    "required": true
+  },
+  {
+    "name": "reference_number",
+    "display_name": "Reference Number",
+    "field_type": "text",
+    "description": "Any unique identifier on the document (invoice number, receipt number, etc.)"
+  },
+  {
+    "name": "payment_method",
+    "display_name": "Payment Method",
+    "field_type": "text",
+    "description": "How the payment was made (cash, credit card, wire transfer, etc.)"
+  }
+]

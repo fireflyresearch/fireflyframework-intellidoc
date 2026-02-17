@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from fireflyframework_intellidoc.config import IntelliDocConfig
 from fireflyframework_intellidoc.splitting.models import SplittingResult
-from fireflyframework_intellidoc.types import DocumentBoundary, PageImage
+from fireflyframework_intellidoc.types import DocumentBoundary, PageImage, pages_to_content
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +117,6 @@ class VisualSplitter:
     ) -> BoundaryAnalysis:
         """Ask the VLM whether there's a document boundary between two pages."""
         try:
-            from fireflyframework_genai.agents.base import FireflyAgent
-
             prompt = (
                 "Analyze these two consecutive document pages. "
                 "Determine if they belong to the same document or if "
@@ -131,9 +129,12 @@ class VisualSplitter:
                 "- Separator pages (blank, barcode, cover)\n\n"
                 f"Page {current_page.page_number} → Page {next_page.page_number}"
             )
+            multimodal_prompt = pages_to_content(
+                [current_page, next_page], prompt,
+            )
 
             result = await agent.run(
-                prompt,
+                multimodal_prompt,
                 output_type=BoundaryAnalysis,
             )
             return result.output

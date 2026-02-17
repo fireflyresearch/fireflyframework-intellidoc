@@ -1,0 +1,71 @@
+[
+  {
+    "name": "invoice_number",
+    "display_name": "Invoice Number",
+    "field_type": "text",
+    "description": "The unique invoice identifier, usually near the top of the document",
+    "required": true,
+    "location_hint": "Near the top right of the document"
+  },
+  {
+    "name": "invoice_date",
+    "display_name": "Invoice Date",
+    "field_type": "date",
+    "description": "The date the invoice was issued",
+    "required": true
+  },
+  {
+    "name": "due_date",
+    "display_name": "Due Date",
+    "field_type": "date",
+    "description": "The payment due date"
+  },
+  {
+    "name": "vendor_name",
+    "display_name": "Vendor Name",
+    "field_type": "text",
+    "description": "The company or person issuing the invoice",
+    "required": true,
+    "location_hint": "Company name at the top or in the header"
+  },
+  {
+    "name": "customer_name",
+    "display_name": "Customer Name",
+    "field_type": "text",
+    "description": "The billed customer or company",
+    "location_hint": "In the 'Bill To' section"
+  },
+  {
+    "name": "subtotal",
+    "display_name": "Subtotal",
+    "field_type": "currency",
+    "description": "The subtotal before tax"
+  },
+  {
+    "name": "tax_amount",
+    "display_name": "Tax Amount",
+    "field_type": "currency",
+    "description": "The total tax amount"
+  },
+  {
+    "name": "total_amount",
+    "display_name": "Total Amount",
+    "field_type": "currency",
+    "description": "The total amount due including tax",
+    "required": true,
+    "location_hint": "Usually the largest/boldest number on the document"
+  },
+  {
+    "name": "currency",
+    "display_name": "Currency",
+    "field_type": "text",
+    "description": "The currency code (e.g., USD, EUR, GBP)"
+  },
+  {
+    "name": "line_items",
+    "display_name": "Line Items",
+    "field_type": "table",
+    "description": "Individual items or services billed",
+    "required": true
+  }
+]

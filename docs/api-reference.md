@@ -309,9 +309,10 @@ Submit a document for processing.
 | `source_type` | string | Yes | `local`, `url`, `s3`, `azure_blob`, `gcs` |
 | `source_reference` | string | Yes | Path, URL, or URI |
 | `filename` | string | Yes | Original filename |
-| `expected_type` | string | No | Skip classification — use this type |
+| `expected_type` | string | No | Binary classification hint — "is this document of type X?" |
 | `expected_nature` | string | No | Narrow classification to this nature |
-| `splitting_strategy` | string | No | Override: `page_based`, `visual` |
+| `document_types` | AdHocDocumentType[] | No | Ad-hoc document types for runtime classification (see below) |
+| `splitting_strategy` | string | No | Override: `whole_document`, `page_based`, `visual` |
 | `tenant_id` | string | No | Multi-tenancy identifier |
 | `correlation_id` | string | No | External correlation ID |
 | `tags` | object | No | Key-value tags |
@@ -334,6 +335,32 @@ Submit a document for processing.
 | `description` | string | No | Description to guide extraction |
 | `required` | boolean | No | Whether the field is required |
 | `location_hint` | string | No | Where to look on the document |
+
+**AdHocDocumentType** (for runtime classification without a catalog):
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | Yes | Unique type code |
+| `name` | string | No | Display name (defaults to titlecased code) |
+| `description` | string | No | Description to guide VLM classification |
+| `nature` | string | No | Document nature (e.g., `financial`, `identity`) |
+
+**Pipeline Modes:**
+
+The combination of `document_types`, `expected_type`, and `target_schema` determines the pipeline behavior:
+
+| Mode | Fields | Classification | Extraction |
+|---|---|---|---|
+| **Full catalog** | None of the above | Multi-class against catalog types | Catalog default fields |
+| **Ad-hoc types + schema** | `document_types` + `target_schema.inline_fields` | Multi-class against ad-hoc types | Schema-driven |
+| **Binary classification** | `expected_type` + `target_schema.inline_fields` | Single-type VLM check | Schema-driven |
+| **Extraction-only** | `target_schema.inline_fields` only | Skipped | Schema-driven |
+| **Mixed** | `document_types` + catalog | Merged types (catalog + ad-hoc) | Inline fields > catalog defaults |
+
+**Field Resolution Priority:**
+
+1. **`target_schema.inline_fields`** — highest priority, always used when present
+2. **`target_schema.field_codes`** — resolved from the catalog
+3. **Catalog defaults** — from the classified document type (confidence-gated)
 
 **Response (sync):**
 ```json
@@ -675,7 +702,7 @@ Values: `pending`, `ingesting`, `preprocessing`, `splitting`, `classifying`, `ex
 | `FILE_TOO_LARGE` | 413 | File exceeds `max_file_size_mb` |
 | `PAGE_EXTRACTION_ERROR` | 422 | Could not extract pages from document |
 | `QUALITY_TOO_LOW` | 422 | Document quality below threshold |
-| `CLASSIFICATION_CONFIDENCE_LOW` | 422 | No classification candidate above threshold |
+| `CLASSIFICATION_CONFIDENCE_LOW` | 422 | Classification confidence below threshold (extraction skipped for catalog-sourced fields) |
 | `PIPELINE_EXECUTION_ERROR` | 500 | General pipeline failure |
 | `JOB_NOT_FOUND` | 404 | Processing job does not exist |
 | `STORAGE_ERROR` | 500 | Storage backend failure |

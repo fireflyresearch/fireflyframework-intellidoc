@@ -29,7 +29,7 @@ from fireflyframework_intellidoc.types import DocumentNature
 
 @component
 class ClassificationStep:
-    """Classifies a document against the catalog."""
+    """Classifies a document against all available types (catalog + ad-hoc)."""
 
     def __init__(
         self, classification_service: ClassificationService
@@ -50,5 +50,6 @@ class ClassificationStep:
             pages=context.current_pages,
             expected_type=context.expected_type,
             expected_nature=expected_nature,
+            ad_hoc_types=context.ad_hoc_document_types if context.ad_hoc_document_types else None,
         )
         context.classification_result = result

@@ -539,9 +539,9 @@ The result will contain multiple `documents` entries:
 
 ---
 
-## 8. Processing with Expected Type (Skip Classification)
+## 8. Processing with Expected Type (Binary Classification Hint)
 
-If you already know the document type, skip the classification step:
+When you know the expected document type, provide it as a binary classification hint:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/intellidoc/process \
@@ -555,9 +555,28 @@ curl -X POST http://localhost:8080/api/v1/intellidoc/process \
   }'
 ```
 
-This bypasses classification and goes directly to extraction using the
-invoice document type's default fields. Useful when documents come from a known
-source with a guaranteed type.
+The VLM performs a focused binary classification — "is this document an invoice?" — rather
+than comparing against all catalog types. If the type exists in the catalog, its default
+fields are used for extraction. You can also combine `expected_type` with inline fields:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/intellidoc/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "local",
+    "source_reference": "/uploads/invoice.pdf",
+    "filename": "invoice.pdf",
+    "expected_type": "invoice",
+    "target_schema": {
+      "inline_fields": [
+        {"name": "invoice_number", "display_name": "Invoice Number", "field_type": "text", "required": true},
+        {"name": "total_amount", "display_name": "Total", "field_type": "currency"}
+      ]
+    }
+  }'
+```
+
+This performs binary classification and extracts only the two specified fields.
 
 ---
 
@@ -613,7 +632,9 @@ curl -X POST http://localhost:8080/api/v1/intellidoc/process \
   }'
 ```
 
-This combines catalog fields (`vendor_name`, `total_amount`) with ad-hoc inline fields (`payment_method`, `store_location`). Inline fields are useful for one-off extractions or experiments before promoting a field to the catalog.
+This combines catalog fields (`vendor_name`, `total_amount`) with ad-hoc inline fields (`payment_method`, `store_location`). When inline fields are present, they take the highest priority in field resolution — the system uses them instead of catalog defaults.
+
+> **Note:** Inline fields can be used without any catalog setup at all. When only `inline_fields` are provided (no `field_codes`), classification is skipped and extraction runs directly from the inline schema.
 
 ---
 
@@ -719,7 +740,137 @@ objects at validation time, scoped to the field's code via `applicable_fields`.
 
 ---
 
-## 12. CLI Processing Examples
+## 12. Ad-Hoc Document Types (Runtime Classification)
+
+Classify documents against types defined at request time — no catalog needed:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/intellidoc/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "local",
+    "source_reference": "/uploads/document.pdf",
+    "filename": "document.pdf",
+    "document_types": [
+      {
+        "code": "invoice",
+        "description": "A formal payment request with line items, totals, and payment details",
+        "nature": "financial"
+      },
+      {
+        "code": "receipt",
+        "description": "A proof of purchase from a store or vendor, usually compact with a total",
+        "nature": "financial"
+      },
+      {
+        "code": "contract",
+        "description": "A legal agreement between parties with terms, conditions, and signatures",
+        "nature": "legal"
+      }
+    ],
+    "target_schema": {
+      "inline_fields": [
+        {"name": "document_date", "display_name": "Date", "field_type": "date"},
+        {"name": "total_amount", "display_name": "Amount", "field_type": "currency"},
+        {"name": "counterparty", "display_name": "Other Party", "field_type": "text"}
+      ]
+    }
+  }'
+```
+
+The VLM classifies against the three ad-hoc types and extracts the inline fields. No catalog
+setup is required. Ad-hoc types can also be combined with catalog types — they are merged
+into a single classification candidate list.
+
+**CLI equivalent:**
+```bash
+intellidoc process document.pdf \
+    --document-types "invoice:Payment request with line items,receipt:Proof of purchase,contract:Legal agreement" \
+    --schema "document_date:date,total_amount:currency,counterparty:text"
+```
+
+---
+
+## 13. Extraction-Only Mode (No Classification)
+
+When you only need to extract specific fields and don't care about document classification,
+provide only inline fields. Classification is skipped entirely:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/intellidoc/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "local",
+    "source_reference": "/uploads/receipt.jpg",
+    "filename": "receipt.jpg",
+    "target_schema": {
+      "inline_fields": [
+        {"name": "vendor", "display_name": "Vendor Name", "field_type": "text", "required": true},
+        {"name": "amount", "display_name": "Total Amount", "field_type": "currency", "required": true},
+        {"name": "date", "display_name": "Purchase Date", "field_type": "date"},
+        {"name": "items", "display_name": "Items", "field_type": "list", "description": "List of purchased items"}
+      ]
+    }
+  }'
+```
+
+This is the simplest mode — just define what you want to extract and send the document.
+No catalog, no document types, no classification step.
+
+**CLI equivalent:**
+```bash
+intellidoc process receipt.jpg \
+    --schema "vendor:text,amount:currency,date:date,items:list"
+```
+
+---
+
+## 14. Mixed Mode (Catalog + Runtime Types)
+
+Combine catalog document types with ad-hoc types for maximum flexibility. This is useful
+when your catalog covers common document types but you occasionally encounter new types:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/intellidoc/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "local",
+    "source_reference": "/uploads/unknown-doc.pdf",
+    "filename": "unknown-doc.pdf",
+    "document_types": [
+      {
+        "code": "utility_bill",
+        "description": "A monthly utility bill for electricity, water, or gas",
+        "nature": "financial"
+      }
+    ],
+    "target_schema": {
+      "inline_fields": [
+        {"name": "account_number", "display_name": "Account Number", "field_type": "text"},
+        {"name": "amount_due", "display_name": "Amount Due", "field_type": "currency"},
+        {"name": "due_date", "display_name": "Due Date", "field_type": "date"}
+      ]
+    }
+  }'
+```
+
+The classification runs against all catalog types **plus** the ad-hoc `utility_bill` type.
+Because inline fields are provided, they take priority over catalog default fields regardless
+of which type is matched.
+
+**CLI equivalent:**
+```bash
+intellidoc process unknown-doc.pdf \
+    --document-types "utility_bill:Monthly utility bill for electricity or gas" \
+    --schema "account_number:text,amount_due:currency,due_date:date"
+```
+
+---
+
+## 15. CLI Dynamic Processing Examples
+
+All examples above use the REST API. Here are equivalent CLI commands for common operations.
+The CLI uses the same processing engine — see the [CLI Reference](cli.md) for full documentation.
 
 All examples above use the REST API. Here are equivalent CLI commands for common operations.
 The CLI uses the same processing engine — see the [CLI Reference](cli.md) for full documentation.
@@ -736,7 +887,7 @@ intellidoc process invoice.pdf --model openai:gpt-4o
 # Extract only specific fields
 intellidoc process invoice.pdf --fields invoice_number,total_amount,vendor_name
 
-# Skip classification when you know the type
+# Binary classification hint
 intellidoc process invoice.pdf --expected-type invoice
 
 # Narrow classification to financial documents
@@ -752,6 +903,30 @@ intellidoc process invoice.pdf --format table
 intellidoc process invoice.pdf --pretty --output result.json
 ```
 
+### Dynamic Pipeline (No Catalog)
+
+```bash
+# Extraction-only — define fields inline, no classification
+intellidoc process invoice.pdf \
+    --schema "invoice_number:text,total_amount:currency,vendor:text,date:date"
+
+# Ad-hoc types + inline schema
+intellidoc process document.pdf \
+    --document-types "invoice:Payment request,receipt:Proof of purchase" \
+    --schema "amount:currency,vendor:text"
+
+# Binary classification + inline schema
+intellidoc process invoice.pdf \
+    --expected-type invoice \
+    --schema "invoice_number:text,amount:currency"
+
+# Schema from a JSON file
+intellidoc process invoice.pdf --schema @fields.json
+
+# Document types from a JSON file
+intellidoc process document.pdf --document-types @types.json --schema @fields.json
+```
+
 ### Batch Processing
 
 ```bash
@@ -761,8 +936,16 @@ intellidoc batch ./invoices/
 # Save per-file results to an output directory
 intellidoc batch ./invoices/ --output ./results/ --format json
 
-# All files are invoices — skip classification
+# All files are invoices — binary classification hint
 intellidoc batch ./invoices/ --expected-type invoice
+
+# Batch with inline schema (no catalog needed)
+intellidoc batch ./receipts/ --schema "vendor:text,amount:currency,date:date"
+
+# Batch with ad-hoc types + schema
+intellidoc batch ./mixed/ \
+    --document-types "invoice:Payment request,receipt:Proof of purchase" \
+    --schema "amount:currency,vendor:text"
 
 # Use Anthropic model with table output
 intellidoc batch ./documents/ --model anthropic:claude-sonnet-4-5-20250929 --format table

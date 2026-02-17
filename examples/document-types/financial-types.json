@@ -1,0 +1,26 @@
+[
+  {
+    "code": "invoice",
+    "name": "Invoice",
+    "description": "A commercial document issued by a seller to a buyer, listing products or services and their prices, with a request for payment",
+    "nature": "financial"
+  },
+  {
+    "code": "receipt",
+    "name": "Receipt",
+    "description": "A proof of purchase or payment confirmation issued after a transaction is completed",
+    "nature": "financial"
+  },
+  {
+    "code": "purchase_order",
+    "name": "Purchase Order",
+    "description": "A formal request from a buyer to a seller to supply goods or services at specified prices and terms",
+    "nature": "financial"
+  },
+  {
+    "code": "bank_statement",
+    "name": "Bank Statement",
+    "description": "A periodic summary of account transactions issued by a financial institution",
+    "nature": "financial"
+  }
+]

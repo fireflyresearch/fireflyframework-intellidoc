@@ -30,7 +30,10 @@ from pyfly.container.stereotypes import service
 
 from fireflyframework_intellidoc.catalog.service import CatalogService
 from fireflyframework_intellidoc.config import IntelliDocConfig
-from fireflyframework_intellidoc.exceptions import PipelineException
+from fireflyframework_intellidoc.exceptions import (
+    DocumentTypeNotFoundException,
+    PipelineException,
+)
 from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 from fireflyframework_intellidoc.pipeline.steps.classification_step import (
     ClassificationStep,
@@ -59,7 +62,11 @@ from fireflyframework_intellidoc.results.domain.processing_job import (
 from fireflyframework_intellidoc.results.domain.processing_result import (
     ProcessingResult,
 )
-from fireflyframework_intellidoc.results.exposure.schemas import TargetSchema
+from fireflyframework_intellidoc.results.exposure.schemas import (
+    AdHocDocumentType,
+    TargetSchema,
+    inline_field_to_catalog_field,
+)
 from fireflyframework_intellidoc.results.service import ResultService
 from fireflyframework_intellidoc.types import JobStatus
 
@@ -104,6 +111,7 @@ class ProcessingOrchestrator:
         expected_nature: str | None = None,
         splitting_strategy: str | None = None,
         target_schema: TargetSchema | None = None,
+        document_types: list[AdHocDocumentType] | None = None,
         tenant_id: str | None = None,
         correlation_id: str | None = None,
         tags: dict[str, str] | None = None,
@@ -132,6 +140,8 @@ class ProcessingOrchestrator:
             expected_nature=expected_nature,
             splitting_strategy=splitting_strategy,
             target_field_codes=target_schema.field_codes if target_schema else None,
+            inline_fields=target_schema.inline_fields if target_schema else [],
+            ad_hoc_document_types=document_types or [],
             tenant_id=tenant_id,
             correlation_id=correlation_id,
             tags=tags or {},
@@ -162,6 +172,7 @@ class ProcessingOrchestrator:
         expected_nature: str | None = None,
         splitting_strategy: str | None = None,
         target_schema: TargetSchema | None = None,
+        document_types: list[AdHocDocumentType] | None = None,
         tenant_id: str | None = None,
         correlation_id: str | None = None,
         tags: dict[str, str] | None = None,
@@ -188,6 +199,8 @@ class ProcessingOrchestrator:
             expected_nature=expected_nature,
             splitting_strategy=splitting_strategy,
             target_field_codes=target_schema.field_codes if target_schema else None,
+            inline_fields=target_schema.inline_fields if target_schema else [],
+            ad_hoc_document_types=document_types or [],
             tenant_id=tenant_id,
             correlation_id=correlation_id,
             tags=tags or {},
@@ -250,6 +263,16 @@ class ProcessingOrchestrator:
         # Stage 4-7: Per-document processing
         if ctx.splitting_result and ctx.preprocessing_result:
             total_docs = ctx.splitting_result.total_documents_detected
+
+            # Determine whether classification is meaningful (computed once).
+            # Classification runs when any document types are available or
+            # the user provided an expected_type hint.
+            should_classify = (
+                bool(ctx.ad_hoc_document_types)
+                or bool(ctx.expected_type)
+                or bool(await self._catalog.list_all_active_document_types())
+            )
+
             for i, boundary in enumerate(ctx.splitting_result.boundaries):
                 # Set up per-document context
                 ctx.current_doc_index = i
@@ -259,36 +282,32 @@ class ProcessingOrchestrator:
                 ctx.classification_result = None
                 ctx.extraction_result = None
                 ctx.validation_results = []
+                ctx.resolved_fields = []
 
                 doc_progress = 40.0 + (50.0 * i / max(total_docs, 1))
 
                 try:
-                    # Classify
-                    await self._update_status(
-                        job, JobStatus.CLASSIFYING, "classify", doc_progress
-                    )
-                    await self._classify.execute(ctx, inputs)
-
-                    # Resolve target fields
-                    if ctx.target_field_codes:
-                        ctx.resolved_fields = await self._catalog.resolve_fields(
-                            ctx.target_field_codes
+                    # ── Classify ──────────────────────────────────────
+                    if should_classify:
+                        await self._update_status(
+                            job, JobStatus.CLASSIFYING, "classify", doc_progress
                         )
-                    elif (
-                        ctx.classification_result
-                        and ctx.classification_result.best_match
-                    ):
-                        ctx.resolved_fields = await self._catalog.get_default_fields(
-                            ctx.classification_result.best_match.document_type_id
+                        await self._classify.execute(ctx, inputs)
+
+                    # ── Resolve fields (single priority chain) ───────
+                    await self._resolve_fields(ctx)
+
+                    # ── Extract ───────────────────────────────────────
+                    if ctx.resolved_fields:
+                        await self._update_status(
+                            job,
+                            JobStatus.EXTRACTING,
+                            "extract",
+                            doc_progress + 15,
                         )
+                        await self._extract.execute(ctx, inputs)
 
-                    # Extract
-                    await self._update_status(
-                        job, JobStatus.EXTRACTING, "extract", doc_progress + 15
-                    )
-                    await self._extract.execute(ctx, inputs)
-
-                    # Validate
+                    # ── Validate ──────────────────────────────────────
                     await self._update_status(
                         job, JobStatus.VALIDATING, "validate", doc_progress + 30
                     )
@@ -318,6 +337,53 @@ class ProcessingOrchestrator:
             final_status = JobStatus.COMPLETED
 
         await self._update_status(job, final_status, "complete", 100.0)
+
+    async def _resolve_fields(self, ctx: IDPPipelineContext) -> None:
+        """Resolve extraction fields from the best available source.
+
+        Priority:
+        1. Inline fields (user-provided schema — always honoured)
+        2. Target field codes (user-provided catalog references)
+        3. Catalog defaults for the classified type (only when the
+           matched type is a persisted catalog type and confidence
+           meets the configured threshold)
+        """
+        # 1. User-provided inline fields — highest priority
+        if ctx.inline_fields:
+            ctx.resolved_fields = [
+                inline_field_to_catalog_field(f) for f in ctx.inline_fields
+            ]
+            return
+
+        # 2. User-provided catalog field codes
+        if ctx.target_field_codes:
+            ctx.resolved_fields = await self._catalog.resolve_fields(
+                ctx.target_field_codes
+            )
+            return
+
+        # 3. Catalog defaults from classified type
+        cr = ctx.classification_result
+        if cr and cr.best_match:
+            # Only fetch catalog defaults if the match has enough confidence
+            if cr.best_match.confidence < self._config.default_confidence_threshold:
+                logger.info(
+                    "Classification confidence %.2f below threshold %.2f "
+                    "— skipping catalog default fields",
+                    cr.best_match.confidence,
+                    self._config.default_confidence_threshold,
+                )
+                return
+
+            # Only catalog-persisted types have default fields; ad-hoc
+            # and synthesized types are not in the catalog.
+            try:
+                ctx.resolved_fields = await self._catalog.get_default_fields(
+                    cr.best_match.document_type_id
+                )
+            except DocumentTypeNotFoundException:
+                # Transient UUID (ad-hoc/synthesized type) — no catalog entry
+                pass
 
     async def _update_status(
         self,

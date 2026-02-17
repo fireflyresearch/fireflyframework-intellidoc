@@ -26,7 +26,7 @@ from fireflyframework_intellidoc.pipeline.context import IDPPipelineContext
 
 @component
 class ExtractionStep:
-    """Extracts structured data using the resolved catalog fields."""
+    """Extracts structured data using the resolved fields."""
 
     def __init__(self, extraction_service: ExtractionService) -> None:
         self._extraction = extraction_service

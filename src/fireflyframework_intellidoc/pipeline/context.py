@@ -32,6 +32,10 @@ from fireflyframework_intellidoc.results.domain.processing_result import (
     DocumentResult,
     ValidationResult,
 )
+from fireflyframework_intellidoc.results.exposure.schemas import (
+    AdHocDocumentType,
+    InlineFieldDefinition,
+)
 from fireflyframework_intellidoc.splitting.models import SplittingResult
 from fireflyframework_intellidoc.types import FileReference, PageImage
 
@@ -55,6 +59,10 @@ class IDPPipelineContext:
     # Target schema (from request)
     target_field_codes: list[str] | None = None
     resolved_fields: list[CatalogField] = field(default_factory=list)
+
+    # Runtime overrides (from request)
+    inline_fields: list[InlineFieldDefinition] = field(default_factory=list)
+    ad_hoc_document_types: list[AdHocDocumentType] = field(default_factory=list)
 
     # Pipeline state (populated by steps)
     file_reference: FileReference | None = None

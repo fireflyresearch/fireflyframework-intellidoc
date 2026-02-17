@@ -1,0 +1,20 @@
+[
+  {
+    "code": "passport",
+    "name": "Passport",
+    "description": "A government-issued travel document certifying the holder's identity and citizenship",
+    "nature": "identity"
+  },
+  {
+    "code": "drivers_license",
+    "name": "Driver's License",
+    "description": "A government-issued identification card that also grants driving privileges",
+    "nature": "identity"
+  },
+  {
+    "code": "national_id",
+    "name": "National ID Card",
+    "description": "A government-issued identification card used for identity verification",
+    "nature": "identity"
+  }
+]

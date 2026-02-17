@@ -1,0 +1,20 @@
+[
+  {
+    "code": "lab_report",
+    "name": "Lab Report",
+    "description": "A document containing laboratory test results for a patient, including values, units, and reference ranges",
+    "nature": "medical"
+  },
+  {
+    "code": "prescription",
+    "name": "Prescription",
+    "description": "A written order from a healthcare provider authorizing medication or treatment for a patient",
+    "nature": "medical"
+  },
+  {
+    "code": "discharge_summary",
+    "name": "Discharge Summary",
+    "description": "A clinical document summarizing a patient's hospital stay, treatment, and follow-up instructions",
+    "nature": "medical"
+  }
+]

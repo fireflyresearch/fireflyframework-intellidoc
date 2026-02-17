@@ -26,7 +26,7 @@ from fireflyframework_intellidoc.validation.service import ValidationService
 
 @component
 class ValidationStep:
-    """Runs catalog-defined validators and field-level rules against extracted data."""
+    """Runs validators and field-level rules against extracted data."""
 
     def __init__(self, validation_service: ValidationService) -> None:
         self._validation = validation_service
@@ -34,20 +34,19 @@ class ValidationStep:
     async def execute(
         self, context: IDPPipelineContext, inputs: dict[str, Any]
     ) -> None:
-        classification = context.classification_result
         extraction = context.extraction_result
-
-        if (
-            classification is None
-            or classification.best_match is None
-            or extraction is None
-        ):
+        if extraction is None:
             return
+
+        classification = context.classification_result
+        document_type_id = None
+        if classification and classification.best_match:
+            document_type_id = classification.best_match.document_type_id
 
         results = await self._validation.validate(
             pages=context.current_pages,
             extracted_data=extraction.extracted_fields,
-            document_type_id=classification.best_match.document_type_id,
+            document_type_id=document_type_id,
             resolved_fields=context.resolved_fields or None,
         )
         context.validation_results = results

@@ -1,0 +1,40 @@
+[
+  {
+    "name": "patient_name",
+    "display_name": "Patient Name",
+    "field_type": "text",
+    "description": "The name of the patient",
+    "required": true
+  },
+  {
+    "name": "patient_dob",
+    "display_name": "Patient Date of Birth",
+    "field_type": "date",
+    "description": "The patient's date of birth"
+  },
+  {
+    "name": "collection_date",
+    "display_name": "Collection Date",
+    "field_type": "date",
+    "description": "The date the specimen was collected or the visit occurred",
+    "required": true
+  },
+  {
+    "name": "ordering_physician",
+    "display_name": "Ordering Physician",
+    "field_type": "text",
+    "description": "The name of the ordering physician or provider"
+  },
+  {
+    "name": "test_results",
+    "display_name": "Test Results",
+    "field_type": "table",
+    "description": "Table of test names, values, units, and reference ranges"
+  },
+  {
+    "name": "diagnosis",
+    "display_name": "Diagnosis",
+    "field_type": "text",
+    "description": "The diagnosis or clinical impression"
+  }
+]

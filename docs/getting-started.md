@@ -68,7 +68,7 @@ pyfly:
     ingestion_url_enabled: true
 
     # Processing
-    default_splitting_strategy: "page_based"  # or "visual" for multi-doc files
+    default_splitting_strategy: "whole_document"  # or "visual" for multi-doc files, "page_based" for per-page splitting
     default_confidence_threshold: 0.7
     max_file_size_mb: 50
 
@@ -466,6 +466,54 @@ curl -X POST http://localhost:8080/api/v1/intellidoc/process \
 
 Only the specified fields will be extracted, ignoring the document type defaults.
 
+### With Inline Fields (No Catalog Required)
+
+Extract ad-hoc fields without setting up any catalog:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/intellidoc/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "local",
+    "source_reference": "/path/to/sample-invoice.pdf",
+    "filename": "sample-invoice.pdf",
+    "target_schema": {
+      "inline_fields": [
+        {"name": "invoice_number", "display_name": "Invoice Number", "field_type": "text", "required": true},
+        {"name": "total_amount", "display_name": "Total", "field_type": "currency"},
+        {"name": "vendor_name", "display_name": "Vendor", "field_type": "text"}
+      ]
+    }
+  }'
+```
+
+Inline fields take the highest priority in field resolution. When only inline fields are provided,
+classification is skipped and extraction runs directly.
+
+### With Ad-Hoc Document Types
+
+Classify against types defined at request time (no catalog needed):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/intellidoc/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "local",
+    "source_reference": "/path/to/unknown-doc.pdf",
+    "filename": "unknown-doc.pdf",
+    "document_types": [
+      {"code": "invoice", "description": "A payment request with line items"},
+      {"code": "receipt", "description": "A proof of purchase"}
+    ],
+    "target_schema": {
+      "inline_fields": [
+        {"name": "amount", "display_name": "Amount", "field_type": "currency"},
+        {"name": "vendor", "display_name": "Vendor", "field_type": "text"}
+      ]
+    }
+  }'
+```
+
 Poll for status:
 ```bash
 # Lightweight status endpoint (optimized for polling)
@@ -559,6 +607,14 @@ intellidoc process /path/to/sample-invoice.pdf --model openai:gpt-4o
 
 # Extract specific fields only
 intellidoc process invoice.pdf --fields invoice_number,total_amount,vendor_name --format table
+
+# Extraction-only with inline schema (no catalog needed)
+intellidoc process invoice.pdf --schema "invoice_number:text,total:currency,vendor:text"
+
+# Ad-hoc types + schema
+intellidoc process document.pdf \
+    --document-types "invoice:Payment request,receipt:Proof of purchase" \
+    --schema "amount:currency,vendor:text"
 
 # Batch process a directory
 intellidoc batch ./invoices/ --output ./results/ --pretty

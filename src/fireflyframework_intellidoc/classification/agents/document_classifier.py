@@ -31,7 +31,7 @@ from fireflyframework_intellidoc.classification.models import (
     ClassificationResult,
 )
 from fireflyframework_intellidoc.config import IntelliDocConfig
-from fireflyframework_intellidoc.types import DocumentNature, PageImage
+from fireflyframework_intellidoc.types import DocumentNature, PageImage, pages_to_content
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +119,13 @@ class DocumentClassifierAgent:
             expected_type=expected_type,
             expected_nature=expected_nature,
         )
+        # Classification only needs the first few pages for visual cues
+        classification_pages = pages[:5]
+        multimodal_prompt = pages_to_content(classification_pages, prompt)
 
         try:
             result = await agent.run(
-                prompt,
+                multimodal_prompt,
                 output_type=VLMClassificationOutput,
             )
             output: VLMClassificationOutput = result.output

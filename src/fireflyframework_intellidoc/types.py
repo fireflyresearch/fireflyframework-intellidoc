@@ -20,11 +20,16 @@ modules so that domain models and ports remain decoupled.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from fireflyframework_genai.types import UserContent
 
 
 # ── Document Nature ─────────────────────────────────────────────────────
@@ -149,6 +154,39 @@ class PageImage(BaseModel):
     rotation_applied: float = 0.0
     enhancements_applied: list[str] = Field(default_factory=list)
     quality_score: float = 1.0
+
+
+def pages_to_content(
+    pages: list[PageImage],
+    prompt: str,
+) -> list[UserContent]:
+    """Build a multimodal prompt with page images and text.
+
+    Reads each page image from disk, wraps it as
+    :class:`~pydantic_ai.messages.BinaryContent`, and returns a list
+    suitable for ``FireflyAgent.run()``.
+
+    All provided pages are included — callers are responsible for
+    batching when documents exceed VLM context limits.
+
+    Args:
+        pages: Page images to include.
+        prompt: The text instruction to append after the images.
+
+    Returns:
+        A ``list[UserContent]`` with images followed by the text prompt.
+    """
+    from pydantic_ai.messages import BinaryContent
+
+    parts: list[UserContent] = []
+    for page in pages:
+        data = page.image_path.read_bytes()
+        suffix = page.image_path.suffix.lower()
+        media = "image/png" if suffix == ".png" else f"image/{suffix.lstrip('.')}"
+        parts.append(BinaryContent(data=data, media_type=media))
+
+    parts.append(prompt)
+    return parts
 
 
 class FileReference(BaseModel):

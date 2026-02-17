@@ -32,7 +32,7 @@ from fireflyframework_intellidoc.config import IntelliDocConfig
 from fireflyframework_intellidoc.results.domain.processing_result import (
     ValidationResult,
 )
-from fireflyframework_intellidoc.types import PageImage, ValidatorType
+from fireflyframework_intellidoc.types import PageImage, ValidatorType, pages_to_content
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +85,11 @@ class VisualValidator:
                 "Examine the document image and determine if the "
                 "requested visual element is present."
             )
+            validation_pages = pages[:5]
+            multimodal_prompt = pages_to_content(validation_pages, full_prompt)
 
             result = await agent.run(
-                full_prompt,
+                multimodal_prompt,
                 output_type=VisualCheckOutput,
             )
             output: VisualCheckOutput = result.output

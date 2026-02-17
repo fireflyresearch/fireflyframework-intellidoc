@@ -1,0 +1,210 @@
+# IntelliDoc Catalog — Invoice Processing
+#
+# A production-ready catalog for invoice document processing.
+# Place this file at catalog.yaml in your working directory.
+
+fields:
+  - code: invoice_number
+    display_name: Invoice Number
+    field_type: text
+    description: The unique invoice identifier
+    required: true
+    location_hint: Near the top right of the document
+    format_pattern: "^[A-Z]{0,4}-?\\d{3,10}$"
+    validation_rules:
+      - rule_type: required
+        severity: error
+        message: Invoice number is required
+      - rule_type: format
+        severity: warning
+        config:
+          pattern: "^[A-Z]{0,4}-?\\d{3,10}$"
+        message: Invoice number should follow standard format
+
+  - code: invoice_date
+    display_name: Invoice Date
+    field_type: date
+    description: The date the invoice was issued
+    required: true
+    validation_rules:
+      - rule_type: required
+        severity: error
+        message: Invoice date is required
+
+  - code: due_date
+    display_name: Due Date
+    field_type: date
+    description: The payment due date
+
+  - code: vendor_name
+    display_name: Vendor Name
+    field_type: text
+    description: The company or person issuing the invoice
+    required: true
+    location_hint: Company name at the top or in the header
+    validation_rules:
+      - rule_type: required
+        severity: error
+        message: Vendor name is required
+
+  - code: vendor_address
+    display_name: Vendor Address
+    field_type: address
+    description: The mailing address of the vendor
+    location_hint: Below the vendor name in the header
+
+  - code: customer_name
+    display_name: Customer Name
+    field_type: text
+    description: The billed customer or company
+    location_hint: In the 'Bill To' section
+
+  - code: customer_address
+    display_name: Customer Address
+    field_type: address
+    description: The mailing address of the customer
+    location_hint: In the 'Bill To' section
+
+  - code: subtotal
+    display_name: Subtotal
+    field_type: currency
+    description: The subtotal before tax
+    min_value: 0
+
+  - code: tax_amount
+    display_name: Tax Amount
+    field_type: currency
+    description: The total tax amount
+    min_value: 0
+
+  - code: total_amount
+    display_name: Total Amount
+    field_type: currency
+    description: The total amount due including tax
+    required: true
+    location_hint: Usually the largest or boldest number on the document
+    min_value: 0
+    validation_rules:
+      - rule_type: required
+        severity: error
+        message: Total amount is required
+      - rule_type: range
+        severity: warning
+        config:
+          min: 0.01
+          max: 10000000
+        message: Total amount should be between 0.01 and 10,000,000
+
+  - code: currency
+    display_name: Currency
+    field_type: text
+    description: The currency code (e.g., USD, EUR, GBP)
+
+  - code: payment_terms
+    display_name: Payment Terms
+    field_type: text
+    description: Payment terms such as Net 30, Due on Receipt
+
+  - code: line_items
+    display_name: Line Items
+    field_type: table
+    description: Individual items or services billed
+    required: true
+    table_columns:
+      - code: description
+        display_name: Description
+        field_type: text
+        required: true
+      - code: quantity
+        display_name: Quantity
+        field_type: number
+        min_value: 0
+      - code: unit_price
+        display_name: Unit Price
+        field_type: currency
+        min_value: 0
+      - code: amount
+        display_name: Amount
+        field_type: currency
+        min_value: 0
+
+validators:
+  - code: invoice_completeness
+    name: Invoice Completeness
+    description: Ensures the invoice has all required fields
+    validator_type: completeness
+    severity: error
+    config:
+      required_fields:
+        - invoice_number
+        - invoice_date
+        - vendor_name
+        - total_amount
+
+  - code: total_matches_subtotal_plus_tax
+    name: Total Matches Subtotal + Tax
+    description: Verifies that total_amount equals subtotal + tax_amount
+    validator_type: cross_field
+    severity: warning
+    config:
+      fields: [subtotal, tax_amount]
+      rule: sum
+      total_field: total_amount
+    applicable_fields: [total_amount, subtotal, tax_amount]
+
+  - code: due_date_after_invoice_date
+    name: Due Date After Invoice Date
+    description: Verifies the due date is not before the invoice date
+    validator_type: cross_field
+    severity: warning
+    config:
+      fields: [invoice_date, due_date]
+      rule: date_order
+    applicable_fields: [invoice_date, due_date]
+
+document_types:
+  - code: invoice
+    name: Invoice
+    description: >-
+      A commercial document issued by a seller to a buyer,
+      listing products or services provided and the amount owed.
+    nature: financial
+    visual_description: >-
+      A formal document with company letterhead, an invoice number
+      prominently displayed, a billing section with vendor and
+      customer details, a table of line items, and a total section.
+    visual_cues:
+      - Company logo at top
+      - "Invoice" title or heading
+      - Table with line items (description, quantity, price)
+      - Total and subtotal amounts at the bottom
+      - Payment terms or due date
+    sample_keywords:
+      - invoice
+      - bill to
+      - subtotal
+      - total due
+      - payment terms
+    classification_instructions: >-
+      Look for a formal document with an invoice number, a seller/buyer
+      section, a line items table, and a total. Distinguish from quotes
+      (no invoice number, marked as Quote) and purchase orders (initiated
+      by buyer, not seller).
+    classification_confidence_threshold: 0.75
+    default_field_codes:
+      - invoice_number
+      - invoice_date
+      - due_date
+      - vendor_name
+      - customer_name
+      - subtotal
+      - tax_amount
+      - total_amount
+      - currency
+      - line_items
+    extraction_instructions: >-
+      Extract invoice number, dates, vendor and customer names,
+      all line items with quantities and prices, subtotal, tax,
+      and total amount. Preserve exact values as printed.
+    supported_languages: [en, es, fr, de]
+    tags: [financial, commercial]

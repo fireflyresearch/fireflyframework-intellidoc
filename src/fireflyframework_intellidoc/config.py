@@ -50,7 +50,7 @@ class IntelliDocConfig:
     # ── Processing Pipeline ──────────────────────────────────────────
     max_pages_per_file: int = 500
     max_file_size_mb: int = 100
-    default_splitting_strategy: str = "visual"
+    default_splitting_strategy: str = "whole_document"
     default_dpi: int = 300
     parallel_documents: int = 5
 
@@ -81,6 +81,8 @@ class IntelliDocConfig:
     # ── Extraction ───────────────────────────────────────────────────
     extraction_strategy: str = "single_pass"
     max_extraction_retries: int = 2
+    extraction_pages_per_batch: int = 5
+    extraction_single_pass_threshold: int = 10
 
     # ── Storage ──────────────────────────────────────────────────────
     storage_provider: str = "local"

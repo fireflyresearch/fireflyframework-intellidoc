@@ -12,7 +12,7 @@ fireflyframework-intellidoc follows three core design principles:
 
 1. **VLM-First** — Send document images directly to Vision-Language Models instead of relying on traditional OCR pipelines. This provides superior understanding of layout, handwriting, and visual elements.
 
-2. **Catalog-Driven** — All document types, field definitions, and validation rules are runtime-configurable through REST APIs. Adding support for a new document type requires zero code changes.
+2. **Dynamic & Catalog-Optional** — Document types, field definitions, and validation rules can be managed through REST APIs for precision and reusability, or provided entirely at runtime (ad-hoc types, inline schemas). The catalog enriches the pipeline when available but is never required. Adding support for a new document type requires zero code changes.
 
 3. **Hexagonal Architecture** — All infrastructure (storage, AI models, databases) sits behind Protocol-based port interfaces. Adapters can be swapped without touching business logic.
 
@@ -80,7 +80,7 @@ annotated with pyfly's `@service` stereotype for auto-discovery.
 | `IngestionService` | Multi-adapter file ingestion with type/size validation |
 | `PreProcessingService` | Page extraction, rotation, enhancement, quality assessment |
 | `SplittingService` | Strategy-based document splitting |
-| `ClassificationService` | VLM-powered classification with confidence thresholds |
+| `ClassificationService` | VLM-powered classification against catalog, ad-hoc, and synthesized types |
 | `ExtractionService` | Field-driven extraction via VLM |
 | `ValidationService` | Catalog-driven validation engine orchestration |
 | `ResultService` | Job lifecycle management and result aggregation |
@@ -154,12 +154,13 @@ Concrete implementations of port interfaces for specific technologies.
 - `GCSDocumentStorageAdapter` — Google Cloud Storage
 
 **Splitting Strategies:**
+- `WholeDocumentSplitter` — Entire file = one document (**default**)
 - `PageBasedSplitter` — Each page = one document
 - `VisualSplitter` — VLM-powered boundary detection
 
 **VLM Agents (via fireflyframework-genai):**
-- `DocumentClassifierAgent` — Catalog-driven classification
-- `FieldExtractorAgent` — Field-driven extraction
+- `DocumentClassifierAgent` — Catalog-driven multimodal classification
+- `FieldExtractorAgent` — Field-driven extraction with memory-based multi-pass support
 
 **Validation Handlers:**
 - `FormatValidator` — Email, phone, IBAN, regex patterns, numeric range, checksum
@@ -229,18 +230,25 @@ The core processing pipeline flows through seven steps:
 
 **3. Splitting** (`SplittingStep`)
 - Detects document boundaries within multi-page files
+- Whole-document strategy (default): entire file treated as a single document
 - Page-based strategy: each page is a separate document
-- Visual strategy: VLM analyzes pages to detect boundaries
+- Visual strategy: VLM analyzes consecutive pages to detect boundaries
 
 **4. Classification** (`ClassificationStep`) — *per document*
-- Loads active document types from the catalog
-- Builds a dynamic classification prompt from catalog data
-- VLM analyzes document pages and returns ranked candidates
-- Checks confidence threshold; filters low-confidence matches
+- Gathers types from all sources: catalog (active types) + ad-hoc types (from request) + synthesized types (from `expected_type`)
+- Optionally filters by `expected_nature`
+- Builds a dynamic classification prompt from the merged type list
+- VLM analyzes document pages and returns ranked candidates with confidence scores
+- Classification is skipped entirely when no types are available (extraction-only mode)
+- The service always returns a `ClassificationResult` — it never raises exceptions for low confidence
 
 **5. Extraction** (`ExtractionStep`) — *per document*
-- Uses resolved fields from the context (either from `target_schema` or document type defaults)
-- Builds a structured extraction prompt from the field definitions
+- Uses resolved fields from the context (inline fields > catalog field codes > document type defaults)
+- Builds a structured extraction prompt from the resolved field definitions
+- **Small documents** (≤ `extraction_single_pass_threshold` pages, default 10): all pages sent in a single VLM call
+- **Large documents** (> threshold): memory-driven two-pass extraction:
+  1. **Comprehension pass** — all pages read in batches (`extraction_pages_per_batch`, default 5); each batch's findings are stored in `WorkingMemory` via `set_fact()`
+  2. **Extraction pass** — accumulated memory context (`get_working_context()`) plus the first page for visual reference are sent to the VLM for final structured extraction
 - VLM extracts all defined fields with per-field confidence
 - Applies default values for missing optional fields
 
@@ -261,7 +269,9 @@ The `ProcessingOrchestrator` manages the full lifecycle:
 - Creates a `ProcessingJob` for tracking
 - Runs pipeline steps in sequence
 - Handles per-document fan-out (steps 4-7 run for each detected document)
-- Resolves target fields between classification and extraction (explicit target_schema > document type defaults)
+- Decides whether classification is meaningful (pre-computed once before the document loop)
+- Resolves target fields via a single priority chain: inline fields > catalog field codes > catalog defaults (confidence-gated)
+- Catches `DocumentTypeNotFoundException` gracefully for transient UUIDs (ad-hoc/synthesized types)
 - Updates job status and progress at each stage
 - Supports partial completion (some documents succeed, others fail)
 - Provides both sync (`process()`) and async (`submit()`) entry points
@@ -327,7 +337,8 @@ Steps read from it and write to it — this is the single object that threads da
 | Group | Fields | Description |
 |---|---|---|
 | **Job metadata** | `job_id`, `source_type`, `source_reference`, `filename`, `expected_type`, `expected_nature`, `splitting_strategy`, `tenant_id`, `correlation_id`, `tags` | Immutable after creation — set from `ProcessRequest` |
-| **Target schema** | `target_field_codes`, `resolved_fields` | `target_field_codes` is set from the request; `resolved_fields` is populated by the orchestrator after classification |
+| **Runtime overrides** | `inline_fields`, `ad_hoc_document_types` | User-provided inline field definitions and ad-hoc document types from the request. Immutable after creation. |
+| **Target schema** | `target_field_codes`, `resolved_fields` | `target_field_codes` is set from the request; `resolved_fields` is populated by the orchestrator's field resolution chain (inline > field_codes > catalog defaults) |
 | **Pipeline results** | `file_reference`, `preprocessing_result`, `splitting_result` | Set once by ingestion, preprocessing, and splitting steps |
 | **Per-document cursor** | `current_pages`, `current_doc_index`, `classification_result`, `extraction_result`, `validation_results` | **Mutated in-place** during the per-document fan-out loop — steps must not cache these across iterations |
 | **Aggregation** | `document_results` | Accumulated across all fan-out iterations |
@@ -345,8 +356,9 @@ any set of fields — the prompts are assembled at runtime from whatever is in t
 
 ### Classification Prompts
 
-The `DocumentClassifierAgent` builds a classification prompt from all active `DocumentType`
-entries. For each type, it renders:
+The `DocumentClassifierAgent` builds a classification prompt from all available `DocumentType`
+entries — gathered from catalog types, ad-hoc types (from the request), and synthesized types
+(from `expected_type`). For each type, it renders:
 
 ```
 - Code: invoice
@@ -400,6 +412,36 @@ The prompt appends fixed extraction rules:
 The VLM returns a structured `VLMExtractionOutput` with `fields` (keyed by code),
 `confidence` (per-field scores), and `notes` (free-text observations).
 
+### Multimodal Prompts
+
+All VLM agents send document page images directly as binary content alongside text prompts.
+The `pages_to_content()` utility converts `PageImage` file paths to `BinaryContent` objects
+(from Pydantic AI) that are included in the multimodal prompt. This ensures the VLM sees the
+actual document images — not just text descriptions.
+
+### Multi-Pass Extraction
+
+For documents exceeding the single-pass threshold (default: 10 pages), the `FieldExtractorAgent`
+uses a memory-driven two-pass architecture powered by the GenAI framework's `MemoryManager`:
+
+```
+Pass 1: Comprehension                    Pass 2: Synthesis
+┌──────────────┐                         ┌──────────────────┐
+│ Pages 1-5    │──┐                      │ WorkingMemory    │
+│ Pages 6-10   │──┤── WorkingMemory ──→  │ context + first  │──→ VLMExtractionOutput
+│ Pages 11-15  │──┤   (set_fact)         │ page image       │
+│ ...          │──┘                      └──────────────────┘
+└──────────────┘
+```
+
+Each comprehension batch sends page images to a dedicated `intellidoc-comprehension` agent
+that identifies field-relevant data. Findings are stored as facts in `WorkingMemory`. The
+synthesis pass then feeds all accumulated memory context (via `get_working_context()`) to the
+extraction agent alongside the first page for visual format reference.
+
+This architecture ensures **all pages are read** — no sampling or truncation — while keeping
+individual VLM calls within context limits.
+
 ### Prompt-Visible vs Metadata-Only Properties
 
 Not all `CatalogField` properties appear in the VLM prompt:
@@ -433,13 +475,15 @@ by multiple document types via `default_field_codes`.
 **Embedded Validation** — Each field carries its own `validation_rules` (format,
 range, required checks) so simple validation travels with the field definition.
 
-**Runtime Override** — Users can pass a `target_schema` in the `ProcessRequest`
-to specify exactly which fields to extract, overriding document type defaults.
+**Runtime Override** — Users can pass inline field definitions or catalog field codes
+in the `ProcessRequest` to specify exactly which fields to extract, overriding document
+type defaults. Inline fields require no catalog setup.
 
 **Resolution Priority:**
-1. Explicit `target_schema.field_codes` from the request
-2. Document type's `default_field_codes` (fallback after classification)
-3. Empty (no extraction performed)
+1. Inline fields (`target_schema.inline_fields`) — ad-hoc field definitions converted to transient `CatalogField` objects
+2. Catalog field codes (`target_schema.field_codes`) — resolved from the catalog by code
+3. Catalog defaults — from the classified document type's `default_field_codes` (only when confidence meets the configured threshold and the type exists in the catalog)
+4. Empty — no extraction performed
 
 ## Integration Points
 
@@ -513,8 +557,7 @@ IntelliDocException
 │   ├── PageExtractionException (PAGE_EXTRACTION_ERROR)
 │   └── QualityTooLowException (QUALITY_TOO_LOW)
 ├── SplittingException (SPLITTING_ERROR)
-├── ClassificationException
-│   └── ClassificationConfidenceTooLowException (CLASSIFICATION_CONFIDENCE_LOW)
+├── ClassificationException (CLASSIFICATION_ERROR)
 ├── ExtractionException (EXTRACTION_ERROR)
 ├── DocumentValidationException (VALIDATION_ERROR)
 ├── PipelineException (PIPELINE_EXECUTION_ERROR)

@@ -35,6 +35,9 @@ from fireflyframework_intellidoc.splitting.strategies.page_based import (
     PageBasedSplitter,
 )
 from fireflyframework_intellidoc.splitting.strategies.visual import VisualSplitter
+from fireflyframework_intellidoc.splitting.strategies.whole_document import (
+    WholeDocumentSplitter,
+)
 from fireflyframework_intellidoc.validation.engine import ValidationEngine
 from fireflyframework_intellidoc.validation.ports.outbound import ValidatorPort
 from fireflyframework_intellidoc.validation.validators.business_rule_validators import (
@@ -74,6 +77,10 @@ class IntelliDocAutoConfiguration:
     @bean
     def page_based_splitter(self) -> DocumentSplitterPort:
         return PageBasedSplitter()
+
+    @bean
+    def whole_document_splitter(self) -> DocumentSplitterPort:
+        return WholeDocumentSplitter()
 
     @bean
     def visual_splitter(self, config: IntelliDocConfig) -> DocumentSplitterPort:
