@@ -97,10 +97,10 @@ intellidoc = "fireflyframework_intellidoc.cli:main"
 
 [project.urls]
 Homepage = "https://fireflyframework.org/"
-Documentation = "https://github.com/fireflyframework/fireflyframework-intellidoc/tree/main/docs"
-Repository = "https://github.com/fireflyframework/fireflyframework-intellidoc"
-Issues = "https://github.com/fireflyframework/fireflyframework-intellidoc/issues"
-Changelog = "https://github.com/fireflyframework/fireflyframework-intellidoc/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/fireflyresearch/fireflyframework-intellidoc/tree/main/docs"
+Repository = "https://github.com/fireflyresearch/fireflyframework-intellidoc"
+Issues = "https://github.com/fireflyresearch/fireflyframework-intellidoc/issues"
+Changelog = "https://github.com/fireflyresearch/fireflyframework-intellidoc/blob/main/CHANGELOG.md"
 
 [project.entry-points."pyfly.auto_configuration"]
 intellidoc = "fireflyframework_intellidoc.auto_configuration:IntelliDocAutoConfiguration"

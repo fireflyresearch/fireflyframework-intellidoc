@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-%3E%3D3.13-blue?logo=python&logoColor=white" alt="Python 3.13+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
-  <a href="https://github.com/fireflyframework/fireflyframework-intellidoc/releases"><img src="https://img.shields.io/badge/version-26.02.02-orange" alt="Version"></a>
+  <a href="https://github.com/fireflyresearch/fireflyframework-intellidoc/releases"><img src="https://img.shields.io/badge/version-26.02.02-orange" alt="Version"></a>
 </p>
 
 ---
@@ -24,7 +24,7 @@ Everything is runtime-configurable: document types, field definitions, validatio
 processing strategies are managed through REST APIs — no code changes or redeployments needed to
 support new document types.
 
-Built on [pyfly](https://github.com/fireflyframework/pyfly) and [fireflyframework-genai](https://github.com/fireflyframework/fireflyframework-genai).
+Built on [pyfly](https://github.com/fireflyresearch/pyfly) and [fireflyframework-genai](https://github.com/fireflyresearch/fireflyframework-genai).
 
 ## Key Features
 
@@ -92,7 +92,7 @@ Ingest → Preprocess → Split → Classify → Extract → Validate → Persis
 ### One-Line Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fireflyframework/fireflyframework-intellidoc/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fireflyresearch/fireflyframework-intellidoc/main/install.sh | bash
 ```
 
 The interactive installer guides you through:

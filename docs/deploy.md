@@ -43,7 +43,7 @@ Use the interactive installer or install manually:
 
 ```bash
 # Interactive
-curl -fsSL https://raw.githubusercontent.com/fireflyframework/fireflyframework-intellidoc/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fireflyresearch/fireflyframework-intellidoc/main/install.sh | bash
 
 # Manual
 python3 -m venv .venv && source .venv/bin/activate

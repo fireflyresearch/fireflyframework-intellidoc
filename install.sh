@@ -525,7 +525,7 @@ case "$SOURCE_MODE" in
         fi
         ;;
     github)
-        git clone --depth 1 https://github.com/fireflyframework/fireflyframework-intellidoc.git _src -q 2>/dev/null || true
+        git clone --depth 1 https://github.com/fireflyresearch/fireflyframework-intellidoc.git _src -q 2>/dev/null || true
         if [ "$USE_UV" = true ]; then
             uv pip install -e "./_src[${EXTRAS:-}]" -q
         else
