@@ -210,6 +210,51 @@ The webhook payload is signed with HMAC-SHA256 when a secret is configured. Veri
 
 When enabled, the `tenant_id` field on `ProcessRequest` is propagated through the entire pipeline. Jobs and results can be filtered by tenant. The catalog (document types, fields, validators) is shared across tenants.
 
+## CLI Configuration
+
+When using the `intellidoc` CLI, command-line flags override configuration file values.
+The CLI also resolves API keys automatically from flags, environment variables, or `.env` files.
+
+### Flag → Config Mapping
+
+| CLI Flag | Config Property | Description |
+|----------|----------------|-------------|
+| `--model` | `default_model` | VLM model for all stages |
+| `--api-key` | N/A | Set via env var (see below) |
+| `--splitting-strategy` | `default_splitting_strategy` | `visual` or `page_based` |
+| `--fields` | N/A | Runtime target schema override |
+| `--expected-type` | N/A | Runtime classification override |
+| `--parallel` | `parallel_documents` | Batch parallelism |
+
+### API Key Resolution Order
+
+1. `--api-key` flag (highest priority)
+2. Environment variable: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`
+3. `.env` file in the current directory
+
+### CLI-Specific YAML
+
+The CLI requires `pyfly.shell.enabled: true` in `pyfly.yaml`:
+
+```yaml
+pyfly:
+  shell:
+    enabled: true
+
+  intellidoc:
+    enabled: true
+    default_model: "openai:gpt-4o"
+```
+
+If no `pyfly.yaml` is present, the CLI uses built-in defaults. The `--model` flag
+always overrides the config file.
+
+### Catalog YAML
+
+In CLI mode, document types, fields, and validators are loaded from `catalog.yaml`
+in the current directory. See the [CLI Reference](cli.md#catalog-yaml-format) for
+the full format.
+
 ## Example Configurations
 
 ### Development (Minimal)

@@ -10,6 +10,10 @@ Base URL: `/api/v1/intellidoc`
 
 All request and response bodies use JSON (`application/json`).
 
+> **CLI alternative:** For command-line document processing without a web server, see the
+> [CLI Reference](cli.md). The `intellidoc` CLI provides `process`, `batch`, and `catalog`
+> commands that use the same processing engine as the REST API.
+
 ---
 
 ## 1. Document Type Management

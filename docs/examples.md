@@ -716,3 +716,85 @@ curl -X POST http://localhost:8080/api/v1/intellidoc/fields \
 Both levels run through the same `ValidationEngine` and produce the same `ValidationResult`
 objects. Field-level rules are automatically converted to ephemeral `ValidatorDefinition`
 objects at validation time, scoped to the field's code via `applicable_fields`.
+
+---
+
+## 12. CLI Processing Examples
+
+All examples above use the REST API. Here are equivalent CLI commands for common operations.
+The CLI uses the same processing engine — see the [CLI Reference](cli.md) for full documentation.
+
+### Single Document Processing
+
+```bash
+# Process an invoice (auto-classify, extract default fields)
+intellidoc process invoice.pdf
+
+# With a specific model
+intellidoc process invoice.pdf --model openai:gpt-4o
+
+# Extract only specific fields
+intellidoc process invoice.pdf --fields invoice_number,total_amount,vendor_name
+
+# Skip classification when you know the type
+intellidoc process invoice.pdf --expected-type invoice
+
+# Narrow classification to financial documents
+intellidoc process unknown-doc.pdf --expected-nature financial
+
+# Pretty JSON output
+intellidoc process invoice.pdf --pretty
+
+# Table output
+intellidoc process invoice.pdf --format table
+
+# Save results to file
+intellidoc process invoice.pdf --pretty --output result.json
+```
+
+### Batch Processing
+
+```bash
+# Process all documents in a directory
+intellidoc batch ./invoices/
+
+# Save per-file results to an output directory
+intellidoc batch ./invoices/ --output ./results/ --format json
+
+# All files are invoices — skip classification
+intellidoc batch ./invoices/ --expected-type invoice
+
+# Use Anthropic model with table output
+intellidoc batch ./documents/ --model anthropic:claude-sonnet-4-5-20250929 --format table
+
+# Quiet mode for scripting
+intellidoc batch ./incoming/ --quiet --output ./processed/
+```
+
+### Catalog Management
+
+```bash
+# Validate a catalog YAML file
+intellidoc catalog validate catalog.yaml
+
+# Display catalog contents as a table
+intellidoc catalog show catalog.yaml
+
+# Display catalog as JSON
+intellidoc catalog show catalog.yaml --format json
+```
+
+### Scripting and Pipelines
+
+```bash
+# Pipe JSON output to jq
+intellidoc process invoice.pdf --quiet | jq '.documents[0].fields'
+
+# Extract a single field value
+TOTAL=$(intellidoc process invoice.pdf --quiet --fields total_amount \
+  | jq -r '.documents[0].fields.total_amount')
+echo "Total: $TOTAL"
+
+# Validate catalog before deployment
+intellidoc catalog validate catalog.yaml || exit 1
+```

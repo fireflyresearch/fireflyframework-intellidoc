@@ -38,7 +38,9 @@ The framework is organized into six layers, from outermost to innermost:
 
 ### Layer 1: Exposure Layer
 
-REST controllers expose the framework's capabilities as HTTP endpoints. Each controller
+The exposure layer provides two entry points into the framework:
+
+**REST API** — Controllers expose the framework's capabilities as HTTP endpoints. Each controller
 handles request/response mapping, validation, and delegation to application services.
 
 **Controllers:**
@@ -54,6 +56,18 @@ handles request/response mapping, validation, and delegation to application serv
 **DTOs** are Pydantic `BaseModel` classes that define the API contract. They are
 intentionally separate from domain models — input validation and response shaping
 stay at the boundary.
+
+**CLI** — The `intellidoc` command-line tool provides an alternative entry point using
+pyfly's `@shell_component` infrastructure. CLI commands (`process`, `batch`, `catalog`)
+call the same `ProcessingOrchestrator` directly, bypassing the REST layer.
+
+**Shell Components:**
+- `ProcessCommands` — `process` (single file) and `batch` (directory) commands
+- `CatalogCommands` — `catalog validate` and `catalog show` commands
+
+The CLI boots the same PyFly DI container as the web server but swaps in-memory adapters
+for catalog and result storage, loading document types from `catalog.yaml` instead of a
+database. See the [CLI Reference](cli.md) for usage.
 
 ### Layer 2: Application Services
 
@@ -169,11 +183,13 @@ wire everything together based on the application's configuration.
 - `IntelliDocAutoConfiguration` — Master config, splitters, validators, metrics
 - `IngestionAutoConfiguration` — Conditional ingestion adapters
 - `StorageAutoConfiguration` — Storage provider selection
+- `IntelliDocCLIAutoConfiguration` — CLI-specific beans: in-memory catalog/result adapters, branded shell adapter (conditional on `pyfly.shell.enabled`)
 
 Auto-configurations are registered via Python entry points:
 ```toml
 [project.entry-points."pyfly.auto_configuration"]
 intellidoc = "fireflyframework_intellidoc.auto_configuration:IntelliDocAutoConfiguration"
+intellidoc-cli = "fireflyframework_intellidoc.cli.auto_configuration:IntelliDocCLIAutoConfiguration"
 ```
 
 ## Processing Pipeline

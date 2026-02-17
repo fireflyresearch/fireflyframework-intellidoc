@@ -14,7 +14,8 @@
 |---|---|
 | Understand the architecture and design decisions | [Architecture Guide](architecture.md) |
 | Set up a working IDP service from scratch | [Getting Started](getting-started.md) |
-| Look up a specific API endpoint | [API Reference](api-reference.md) |
+| Process documents from the command line | [CLI Reference](cli.md) |
+| Look up a specific REST API endpoint | [API Reference](api-reference.md) |
 | Tune configuration properties | [Configuration Reference](configuration.md) |
 | See real-world document type setups | [Examples](examples.md) |
 | Deploy to production | [Deploy Guide](deploy.md) |
@@ -162,6 +163,14 @@ Step-by-step tutorial to build an invoice processing service from zero.
 **Covers:** Install → Create app → Configure → Start → Create document type → Define catalog
 fields → Assign default fields → Create validators → Assign validators → Process sync/async →
 Target schema override → Batch processing → Export results → Analytics
+
+### [CLI Reference](cli.md)
+
+Complete documentation for the `intellidoc` command-line tool.
+
+**Covers:** process (single file) → batch (directory) → catalog validate → catalog show →
+API key resolution → catalog YAML format → output formats (JSON, table, CSV) →
+CI/CD integration → CLI vs REST API comparison
 
 ### [API Reference](api-reference.md)
 

@@ -132,7 +132,29 @@ See the extras table below for all available packages.
 
 ## Quick Start
 
-### 1. Install and Configure
+### Option A: CLI (No Server Required)
+
+```bash
+pip install fireflyframework-intellidoc
+export OPENAI_API_KEY="sk-..."
+
+# Process a single document
+intellidoc process invoice.pdf --model openai:gpt-4o
+
+# Process with specific fields and table output
+intellidoc process invoice.pdf --fields invoice_number,total_amount --format table
+
+# Batch process a directory
+intellidoc batch ./documents/ --output ./results/
+
+# Validate a catalog definition
+intellidoc catalog validate catalog.yaml
+```
+
+The CLI processes documents directly from the terminal — no web server, database, or
+configuration files required. See the [CLI Reference](docs/cli.md) for all commands.
+
+### Option B: Web Server (REST API)
 
 ```bash
 pip install "fireflyframework-intellidoc[web]"
@@ -320,7 +342,8 @@ See [docs/configuration.md](docs/configuration.md) for the complete reference.
 |----------|-------------|
 | [Architecture Guide](docs/architecture.md) | Design principles, layers, and data flow |
 | [Getting Started](docs/getting-started.md) | Step-by-step tutorial |
-| [API Reference](docs/api-reference.md) | Complete endpoint documentation |
+| [CLI Reference](docs/cli.md) | Command-line tool usage and examples |
+| [API Reference](docs/api-reference.md) | Complete REST endpoint documentation |
 | [Configuration Reference](docs/configuration.md) | All configuration properties |
 | [Deploy Guide](docs/deploy.md) | Production deployment (Docker, systemd, scaling) |
 | [Examples](docs/examples.md) | Invoice, identity document, batch processing examples |
@@ -335,6 +358,11 @@ fireflyframework_intellidoc/
 ├── main.py                        # Built-in ASGI entry point (pyfly run)
 ├── auto_configuration.py          # Master auto-configuration
 ├── config.py                      # IntelliDocConfig (60+ properties)
+├── cli/                           # CLI tool (intellidoc command)
+│   ├── commands.py                # process, batch commands
+│   ├── catalog_commands.py        # catalog validate, catalog show
+│   ├── shell_adapter.py           # Branded Click adapter
+│   └── auto_configuration.py      # CLI-specific beans (in-memory adapters)
 ├── exceptions.py                  # Exception hierarchy
 ├── types.py                       # Shared enums and value types
 ├── catalog/                       # Document type & validator catalog

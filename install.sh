@@ -248,16 +248,18 @@ print_step "Step 3 / 10 — Installation Profile"
 EXTRAS=""
 
 prompt_choice "Select an installation profile:" \
-    "Minimal — core + web server" \
-    "Standard — core + cloud storage + observability" \
+    "CLI only — process documents from the terminal (no web server)" \
+    "Minimal — CLI + web server" \
+    "Standard — CLI + web server + cloud storage + observability" \
     "Full — all extras" \
     "Custom — choose individual extras"
 
 case "$CHOICE_RESULT" in
-    1) EXTRAS="web" ;;
-    2) EXTRAS="web,s3,observability" ;;
-    3) EXTRAS="all" ;;
-    4)
+    1) EXTRAS="" ;;
+    2) EXTRAS="web" ;;
+    3) EXTRAS="web,s3,observability" ;;
+    4) EXTRAS="all" ;;
+    5)
         EXTRAS=""
         echo ""
         echo -e "  ${WHITE}Select extras (enter numbers separated by spaces):${RESET}"
@@ -466,10 +468,14 @@ print_success "Storage: ${STORAGE_PROVIDER}"
 print_step "Step 7 / 10 — Project Settings"
 
 PROJECT_DIR=$(prompt_input "Project directory name" "intellidoc-service")
-WEB_PORT=$(prompt_input "Web server port" "8080")
+
+WEB_PORT="8080"
+if [[ "$EXTRAS" == *"web"* ]] || [[ "$EXTRAS" == "all" ]]; then
+    WEB_PORT=$(prompt_input "Web server port" "8080")
+    print_success "Port: ${WEB_PORT}"
+fi
 
 print_success "Project: ${PROJECT_DIR}"
-print_success "Port: ${WEB_PORT}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Step 8: Install
@@ -537,6 +543,14 @@ esac
 
 print_success "Package installed"
 
+# Verify CLI tool
+if command -v intellidoc &>/dev/null; then
+    CLI_VERSION=$(intellidoc --version 2>&1 || true)
+    print_success "CLI tool available: ${CLI_VERSION}"
+else
+    print_warn "intellidoc command not found in PATH — use: .venv/bin/intellidoc"
+fi
+
 # ── Generate pyfly.yaml ─────────────────────────────────────────────────────
 print_info "Generating pyfly.yaml..."
 
@@ -545,9 +559,21 @@ pyfly:
   app:
     module: fireflyframework_intellidoc.main:app
 
+  shell:
+    enabled: true
+
+YAML
+
+# Add server config only if web extra is installed
+if [[ "$EXTRAS" == *"web"* ]] || [[ "$EXTRAS" == "all" ]]; then
+    cat >> pyfly.yaml << YAML
   server:
     port: ${WEB_PORT}
 
+YAML
+fi
+
+cat >> pyfly.yaml << YAML
   intellidoc:
     enabled: true
     default_model: "${VLM_MODEL}"
@@ -623,35 +649,46 @@ fi
 # ══════════════════════════════════════════════════════════════════════════════
 print_step "Step 9 / 10 — Verification"
 
-if prompt_confirm "Run a quick health check? (starts and stops the service)"; then
-    print_info "Starting service..."
-    pyfly run &
-    SERVICE_PID=$!
-
-    # Wait for startup
-    RETRIES=0
-    HEALTH_OK=false
-    while [ $RETRIES -lt 15 ]; do
-        sleep 2
-        if curl -sf "http://localhost:${WEB_PORT}/api/v1/intellidoc/health" >/dev/null 2>&1; then
-            HEALTH_OK=true
-            break
-        fi
-        RETRIES=$((RETRIES + 1))
-    done
-
-    if [ "$HEALTH_OK" = true ]; then
-        print_success "Health check passed"
-    else
-        print_warn "Health check timed out — service may need more time to start"
-    fi
-
-    # Stop service
-    kill "$SERVICE_PID" 2>/dev/null || true
-    wait "$SERVICE_PID" 2>/dev/null || true
-    print_info "Service stopped"
+# CLI verification
+print_info "Verifying CLI tool..."
+if intellidoc --version &>/dev/null; then
+    print_success "intellidoc CLI is working"
 else
-    print_info "Skipped — verify manually with: pyfly run"
+    print_warn "intellidoc CLI could not be verified — check your PATH"
+fi
+
+# Web server verification (only if web extra installed)
+if [[ "$EXTRAS" == *"web"* ]] || [[ "$EXTRAS" == "all" ]]; then
+    if prompt_confirm "Run a quick web server health check? (starts and stops the service)"; then
+        print_info "Starting service..."
+        pyfly run &
+        SERVICE_PID=$!
+
+        # Wait for startup
+        RETRIES=0
+        HEALTH_OK=false
+        while [ $RETRIES -lt 15 ]; do
+            sleep 2
+            if curl -sf "http://localhost:${WEB_PORT}/api/v1/intellidoc/health" >/dev/null 2>&1; then
+                HEALTH_OK=true
+                break
+            fi
+            RETRIES=$((RETRIES + 1))
+        done
+
+        if [ "$HEALTH_OK" = true ]; then
+            print_success "Web health check passed"
+        else
+            print_warn "Health check timed out — service may need more time to start"
+        fi
+
+        # Stop service
+        kill "$SERVICE_PID" 2>/dev/null || true
+        wait "$SERVICE_PID" 2>/dev/null || true
+        print_info "Service stopped"
+    else
+        print_info "Skipped — verify manually with: pyfly run"
+    fi
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -670,10 +707,13 @@ echo -e "${RESET}"
 echo -e "  ${WHITE}Summary${RESET}"
 echo -e "  ${DIM}────────────────────────────────────────${RESET}"
 echo -e "  Project directory:  ${CYAN}$(pwd)${RESET}"
-echo -e "  Extras:             ${CYAN}${EXTRAS:-core only}${RESET}"
+echo -e "  Extras:             ${CYAN}${EXTRAS:-core + CLI}${RESET}"
 echo -e "  VLM provider:       ${CYAN}${VLM_PROVIDER} (${VLM_MODEL})${RESET}"
 echo -e "  Storage:            ${CYAN}${STORAGE_PROVIDER}${RESET}"
-echo -e "  Port:               ${CYAN}${WEB_PORT}${RESET}"
+echo -e "  CLI tool:           ${CYAN}intellidoc${RESET}"
+if [[ "$EXTRAS" == *"web"* ]] || [[ "$EXTRAS" == "all" ]]; then
+echo -e "  Web port:           ${CYAN}${WEB_PORT}${RESET}"
+fi
 echo -e "  Config:             ${CYAN}pyfly.yaml${RESET}"
 echo -e "  Secrets:            ${CYAN}.env${RESET}"
 echo ""
@@ -681,8 +721,20 @@ echo -e "  ${WHITE}Next Steps${RESET}"
 echo -e "  ${DIM}────────────────────────────────────────${RESET}"
 echo -e "  ${GREEN}1.${RESET} cd ${PROJECT_DIR}"
 echo -e "  ${GREEN}2.${RESET} source .venv/bin/activate"
-echo -e "  ${GREEN}3.${RESET} pyfly run"
 echo ""
+echo -e "  ${WHITE}CLI Usage${RESET}"
+echo -e "  ${DIM}────────────────────────────────────────${RESET}"
+echo -e "  ${GREEN}$${RESET} intellidoc process invoice.pdf"
+echo -e "  ${GREEN}$${RESET} intellidoc process scan.png --model openai:gpt-4o --format table"
+echo -e "  ${GREEN}$${RESET} intellidoc batch ./documents/ --output ./results/"
+echo -e "  ${GREEN}$${RESET} intellidoc catalog validate catalog.yaml"
+echo -e "  ${GREEN}$${RESET} intellidoc --help"
+echo ""
+if [[ "$EXTRAS" == *"web"* ]] || [[ "$EXTRAS" == "all" ]]; then
+echo -e "  ${WHITE}Web Server${RESET}"
+echo -e "  ${DIM}────────────────────────────────────────${RESET}"
+echo -e "  ${GREEN}$${RESET} pyfly run"
 echo -e "  ${DIM}Health:${RESET}    http://localhost:${WEB_PORT}/api/v1/intellidoc/health"
 echo -e "  ${DIM}API Docs:${RESET}  http://localhost:${WEB_PORT}/docs"
 echo ""
+fi

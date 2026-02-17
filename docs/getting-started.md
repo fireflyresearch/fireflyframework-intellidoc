@@ -27,6 +27,17 @@ python -m venv .venv && source .venv/bin/activate
 pip install "fireflyframework-intellidoc[web,pdf-images]"
 ```
 
+> **CLI alternative:** If you only need to process documents from the terminal without
+> running a web server, install the core package and use the `intellidoc` CLI:
+>
+> ```bash
+> pip install fireflyframework-intellidoc
+> export OPENAI_API_KEY="sk-..."
+> intellidoc process invoice.pdf
+> ```
+>
+> See the [CLI Reference](cli.md) for full documentation.
+
 ## Step 2: Configure
 
 Create `pyfly.yaml`:
@@ -537,10 +548,34 @@ curl http://localhost:8080/api/v1/intellidoc/analytics/validation-failures?limit
 curl "http://localhost:8080/api/v1/intellidoc/analytics/cost?group_by=week"
 ```
 
+## Alternative: CLI Processing
+
+Everything above uses the REST API with a running web server. If you prefer processing
+documents directly from the terminal, use the `intellidoc` CLI:
+
+```bash
+# Process the same invoice from the command line
+intellidoc process /path/to/sample-invoice.pdf --model openai:gpt-4o
+
+# Extract specific fields only
+intellidoc process invoice.pdf --fields invoice_number,total_amount,vendor_name --format table
+
+# Batch process a directory
+intellidoc batch ./invoices/ --output ./results/ --pretty
+
+# Use a catalog YAML file for document types and fields
+intellidoc catalog validate catalog.yaml
+intellidoc process invoice.pdf
+```
+
+The CLI uses the same processing engine as the REST API — only the storage layer differs
+(in-memory instead of database). See the [CLI Reference](cli.md) for full documentation.
+
 ## Next Steps
 
 - Read the [Architecture Guide](architecture.md) for design details
-- See the [API Reference](api-reference.md) for all endpoints
+- Try the [CLI Reference](cli.md) for command-line processing
+- See the [API Reference](api-reference.md) for all REST endpoints
 - Check [Configuration Reference](configuration.md) for all properties
 - Browse [Examples](examples.md) for more document type setups
 - Add cloud storage with the `s3`, `azure`, or `gcs` extras

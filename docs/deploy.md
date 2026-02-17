@@ -13,6 +13,28 @@ This guide covers deploying fireflyframework-intellidoc to production environmen
 
 ---
 
+## CLI Tool
+
+The `intellidoc` CLI is installed automatically with the package — no extra dependencies
+or configuration needed. It processes documents directly from the terminal using the
+same engine as the web server.
+
+```bash
+pip install fireflyframework-intellidoc
+export OPENAI_API_KEY="sk-..."
+intellidoc process document.pdf
+```
+
+The CLI is ideal for:
+- **CI/CD pipelines** — validate catalogs and process documents in automated workflows
+- **Developer workstations** — quick document processing without running a server
+- **Batch scripting** — process directories of documents with `intellidoc batch`
+- **Edge deployments** — lightweight processing without database infrastructure
+
+See the [CLI Reference](cli.md) for full command documentation.
+
+---
+
 ## Single-Server Deployment
 
 ### Install

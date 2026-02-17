@@ -92,6 +92,9 @@ dev = [
     "httpx>=0.28.0",
 ]
 
+[project.scripts]
+intellidoc = "fireflyframework_intellidoc.cli:main"
+
 [project.urls]
 Homepage = "https://fireflyframework.org/"
 Documentation = "https://github.com/fireflyframework/fireflyframework-intellidoc/tree/main/docs"
@@ -101,6 +104,7 @@ Changelog = "https://github.com/fireflyframework/fireflyframework-intellidoc/blo
 
 [project.entry-points."pyfly.auto_configuration"]
 intellidoc = "fireflyframework_intellidoc.auto_configuration:IntelliDocAutoConfiguration"
+intellidoc-cli = "fireflyframework_intellidoc.cli.auto_configuration:IntelliDocCLIAutoConfiguration"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]

@@ -7,6 +7,29 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (YY.MM.PA
 
 ## [26.02.02] - 2026-02-17
 
+### Added
+
+#### CLI Tool
+- `intellidoc` command-line tool for processing documents without a web server or database
+- `intellidoc process` — single document processing with model, fields, and format options
+- `intellidoc batch` — directory-based batch processing with parallel execution
+- `intellidoc catalog validate` — validate catalog YAML files
+- `intellidoc catalog show` — display catalog contents as table or JSON
+- In-memory catalog and result storage adapters for CLI mode
+- Catalog YAML loader for defining document types, fields, and validators in YAML
+- API key resolution from flags, environment variables, and `.env` files
+- Rich progress bar and branded banner output
+- Output formats: JSON (compact/pretty), table, CSV
+- CLI auto-configuration conditional on `pyfly.shell.enabled`
+
+#### Interactive Installer
+- `install.sh` — interactive TUI installer with `curl | bash` support
+- System prerequisite checks (Python, uv, git)
+- Installation profiles: CLI only, Minimal, Standard, Full, Custom
+- VLM provider selection and API key setup
+- Storage backend configuration (local, S3, Azure, GCS)
+- Automatic `pyfly.yaml` and `.env` generation
+
 ### Changed
 
 #### Fields Catalog (Breaking Change)
