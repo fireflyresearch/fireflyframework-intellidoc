@@ -321,6 +321,16 @@ Submit a document for processing.
 | `inline_fields` | InlineFieldDefinition[] | No | Ad-hoc field definitions |
 | `extraction_strategy` | string | No | `"single_pass"` (default) |
 
+**InlineFieldDefinition** (for ad-hoc fields not in the catalog):
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Internal field name |
+| `display_name` | string | Yes | Human-readable name |
+| `field_type` | FieldType | Yes | `text`, `number`, `date`, `currency`, `boolean`, `email`, `phone`, `address`, `table`, `list`, `enum`, `image_region` |
+| `description` | string | No | Description to guide extraction |
+| `required` | boolean | No | Whether the field is required |
+| `location_hint` | string | No | Where to look on the document |
+
 **Response (sync):**
 ```json
 {
@@ -605,3 +615,63 @@ Errors follow pyfly's standard error format:
   "timestamp": "2026-02-17T10:00:00"
 }
 ```
+
+---
+
+## Enumerations Reference
+
+### FieldType
+| Value | Description |
+|-------|-------------|
+| `text` | Free-form text string |
+| `number` | Numeric value (integer or decimal) |
+| `date` | Calendar date (ISO 8601 preferred) |
+| `currency` | Monetary amount |
+| `boolean` | True/false value |
+| `email` | Email address |
+| `phone` | Phone number |
+| `address` | Postal/physical address |
+| `table` | Tabular data with nested column definitions |
+| `list` | Ordered list of values |
+| `enum` | Value constrained to `allowed_values` |
+| `image_region` | Bounding box or region of interest in the page image |
+
+### ValidatorType
+| Value | Handler | Description |
+|-------|---------|-------------|
+| `format` | `FormatValidator` | Pattern matching — email, phone, IBAN, regex, date format |
+| `range` | `FormatValidator` | Numeric range validation (min/max bounds) |
+| `required` | `CompletenessValidator` | Field presence and non-emptiness |
+| `cross_field` | `CrossFieldValidator` | Multi-field logic — sum verification, field matching, date ordering |
+| `visual` | `VisualValidator` | VLM-based visual checks — signatures, stamps, photos, watermarks |
+| `business_rule` | `BusinessRuleValidator` | Expression evaluation against extracted data |
+| `completeness` | `CompletenessValidator` | Required fields present, minimum page count |
+| `checksum` | `FormatValidator` | Algorithmic checksum validation (IBAN MOD97, Luhn, etc.) |
+| `lookup` | `BusinessRuleValidator` | Value lookup against reference datasets |
+
+### DocumentNature
+Values: `identity`, `financial`, `legal`, `medical`, `government`, `educational`, `commercial`, `insurance`, `real_estate`, `hr`, `correspondence`, `technical`, `other`
+
+### JobStatus
+Values: `pending`, `ingesting`, `preprocessing`, `splitting`, `classifying`, `extracting`, `validating`, `completed`, `failed`, `partially_completed`, `cancelled`
+
+### Error Codes
+
+| Code | HTTP Status | Description |
+|------|:-----------:|-------------|
+| `DOCUMENT_TYPE_NOT_FOUND` | 404 | Document type does not exist |
+| `DOCUMENT_TYPE_DUPLICATE` | 409 | Document type code already taken |
+| `FIELD_NOT_FOUND` | 404 | Catalog field does not exist |
+| `FIELD_DUPLICATE` | 409 | Field code already taken |
+| `VALIDATOR_NOT_FOUND` | 404 | Validator does not exist |
+| `VALIDATOR_DUPLICATE` | 409 | Validator code already taken |
+| `TARGET_SCHEMA_RESOLUTION_ERROR` | 400 | One or more field codes in target_schema could not be resolved |
+| `FILE_SOURCE_ERROR` | 502 | Could not fetch file from source |
+| `UNSUPPORTED_FILE_TYPE` | 415 | MIME type not in supported list |
+| `FILE_TOO_LARGE` | 413 | File exceeds `max_file_size_mb` |
+| `PAGE_EXTRACTION_ERROR` | 422 | Could not extract pages from document |
+| `QUALITY_TOO_LOW` | 422 | Document quality below threshold |
+| `CLASSIFICATION_CONFIDENCE_LOW` | 422 | No classification candidate above threshold |
+| `PIPELINE_EXECUTION_ERROR` | 500 | General pipeline failure |
+| `JOB_NOT_FOUND` | 404 | Processing job does not exist |
+| `STORAGE_ERROR` | 500 | Storage backend failure |

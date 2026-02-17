@@ -183,6 +183,33 @@ Default supported types:
 - `image/webp`
 - `image/gif`
 
+## Webhooks
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `webhook_enabled` | bool | `false` | Enable webhook notifications on job completion |
+| `webhook_default_url` | string | `""` | Default webhook URL (used when not specified per-job) |
+| `webhook_secret` | string | `""` | HMAC-SHA256 signing secret for webhook payloads |
+| `webhook_retry_count` | int | `3` | Number of delivery attempts per webhook |
+| `webhook_timeout_seconds` | int | `30` | HTTP timeout for webhook delivery |
+
+**Per-job webhooks:** Set `webhook_url` and optionally `webhook_secret` in the processing request tags to override the global defaults for a specific job.
+
+**Security note:** Use environment variables for the webhook secret:
+```bash
+export PYFLY_INTELLIDOC_WEBHOOK_SECRET="your-shared-secret"
+```
+
+The webhook payload is signed with HMAC-SHA256 when a secret is configured. Verify the `X-IntelliDoc-Signature` header (`sha256={hex_digest}`) against the raw request body.
+
+## Multi-Tenancy
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `multi_tenancy_enabled` | bool | `false` | Enable multi-tenancy features |
+
+When enabled, the `tenant_id` field on `ProcessRequest` is propagated through the entire pipeline. Jobs and results can be filtered by tenant. The catalog (document types, fields, validators) is shared across tenants.
+
 ## Example Configurations
 
 ### Development (Minimal)
