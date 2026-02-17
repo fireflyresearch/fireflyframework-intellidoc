@@ -89,25 +89,29 @@ Ingest → Preprocess → Split → Classify → Extract → Validate → Persis
 
 ## Installation
 
+### One-Line Install
+
 ```bash
-# Core
-pip install fireflyframework-intellidoc
-
-# With cloud storage
-pip install "fireflyframework-intellidoc[s3,azure,gcs]"
-
-# With PostgreSQL persistence and web server
-pip install "fireflyframework-intellidoc[postgresql,web]"
-
-# Everything
-pip install "fireflyframework-intellidoc[all]"
-
-# Development
-pip install "fireflyframework-intellidoc[dev]"
+curl -fsSL https://raw.githubusercontent.com/fireflyframework/fireflyframework-intellidoc/main/install.sh | bash
 ```
 
+The interactive installer guides you through:
+- Python and system dependency checks
+- VLM provider selection and API key setup
+- Storage backend configuration
+- Optional extras (cloud storage, PostgreSQL, observability, security)
+- Automatic `pyfly.yaml` and `.env` generation
+
+### Manual Install
+
+```bash
+pip install "fireflyframework-intellidoc[web]"
+```
+
+See the extras table below for all available packages.
+
 <details>
-<summary><strong>Optional dependencies</strong></summary>
+<summary><strong>Installation extras</strong></summary>
 
 | Extra | Description |
 |-------|-------------|
@@ -128,38 +132,33 @@ pip install "fireflyframework-intellidoc[dev]"
 
 ## Quick Start
 
-### 1. Create a pyfly Application
+### 1. Install and Configure
 
-```python
-from pyfly.core import PyFlyApplication, pyfly_application
-
-
-@pyfly_application(
-    name="my-idp-service",
-    scan_packages=["myapp", "fireflyframework_intellidoc"],
-)
-class MyIDPApp:
-    pass
-
-
-app = PyFlyApplication(MyIDPApp)
+```bash
+pip install "fireflyframework-intellidoc[web]"
 ```
 
-### 2. Configure IntelliDoc
+Create `pyfly.yaml`:
 
 ```yaml
-# application.yml
 pyfly:
+  app:
+    module: fireflyframework_intellidoc.main:app
   intellidoc:
     enabled: true
     default_model: "openai:gpt-4o"
     storage_provider: "local"
-    storage_local_path: "/var/intellidoc/storage"
-    ingestion_local_enabled: true
-    ingestion_url_enabled: true
+    storage_local_path: "./intellidoc-storage"
 ```
 
-### 3. Create a Document Type
+```bash
+export OPENAI_API_KEY="sk-..."
+pyfly run
+```
+
+No application class needed — IntelliDoc ships with a built-in entry point.
+
+### 2. Create a Document Type
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/intellidoc/document-types \
@@ -175,7 +174,7 @@ curl -X POST http://localhost:8080/api/v1/intellidoc/document-types \
   }'
 ```
 
-### 4. Create Catalog Fields
+### 3. Create Catalog Fields
 
 ```bash
 # Create reusable field definitions
@@ -205,7 +204,7 @@ curl -X PUT "http://localhost:8080/api/v1/intellidoc/document-types/{id}/default
   -d '{"field_codes": ["invoice_number", "invoice_date", "total_amount"]}'
 ```
 
-### 5. Process a Document
+### 4. Process a Document
 
 ```bash
 # Synchronous processing
@@ -240,7 +239,7 @@ curl -X POST http://localhost:8080/api/v1/intellidoc/process \
   }'
 ```
 
-### 6. Retrieve Results
+### 5. Retrieve Results
 
 ```bash
 # Full result
@@ -323,6 +322,7 @@ See [docs/configuration.md](docs/configuration.md) for the complete reference.
 | [Getting Started](docs/getting-started.md) | Step-by-step tutorial |
 | [API Reference](docs/api-reference.md) | Complete endpoint documentation |
 | [Configuration Reference](docs/configuration.md) | All configuration properties |
+| [Deploy Guide](docs/deploy.md) | Production deployment (Docker, systemd, scaling) |
 | [Examples](docs/examples.md) | Invoice, identity document, batch processing examples |
 
 <details>
@@ -332,6 +332,7 @@ See [docs/configuration.md](docs/configuration.md) for the complete reference.
 fireflyframework_intellidoc/
 ├── __init__.py                    # Public API exports
 ├── _version.py                    # Version string
+├── main.py                        # Built-in ASGI entry point (pyfly run)
 ├── auto_configuration.py          # Master auto-configuration
 ├── config.py                      # IntelliDocConfig (60+ properties)
 ├── exceptions.py                  # Exception hierarchy

@@ -17,6 +17,7 @@
 | Look up a specific API endpoint | [API Reference](api-reference.md) |
 | Tune configuration properties | [Configuration Reference](configuration.md) |
 | See real-world document type setups | [Examples](examples.md) |
+| Deploy to production | [Deploy Guide](deploy.md) |
 | Review what changed between versions | [Changelog](../CHANGELOG.md) |
 
 ---

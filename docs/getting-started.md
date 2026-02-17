@@ -27,33 +27,16 @@ python -m venv .venv && source .venv/bin/activate
 pip install "fireflyframework-intellidoc[web,pdf-images]"
 ```
 
-## Step 2: Create Application
+## Step 2: Configure
 
-Create `app.py`:
-
-```python
-from pyfly.core import PyFlyApplication, pyfly_application
-
-
-@pyfly_application(
-    name="my-idp-service",
-    scan_packages=["fireflyframework_intellidoc"],
-)
-class MyIDPApp:
-    pass
-
-
-if __name__ == "__main__":
-    app = PyFlyApplication(MyIDPApp)
-    app.run()
-```
-
-## Step 3: Configure
-
-Create `application.yml`:
+Create `pyfly.yaml`:
 
 ```yaml
 pyfly:
+  # Point to IntelliDoc's built-in application
+  app:
+    module: fireflyframework_intellidoc.main:app
+
   # Web server
   web:
     port: 8080
@@ -94,11 +77,80 @@ export OPENAI_API_KEY="sk-..."
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-## Step 4: Start the Service
+## Step 3: Start the Service
 
 ```bash
-python app.py
+pyfly run
 ```
+
+That's it — no application class needed. IntelliDoc ships with a built-in `main.py`
+that wires up all controllers, services, and auto-configurations automatically.
+
+You can also start it directly:
+```bash
+pyfly run --app fireflyframework_intellidoc.main:app
+```
+
+<details>
+<summary><strong>Advanced: Custom application class</strong></summary>
+
+If you need to add your own controllers, services, or custom beans alongside IntelliDoc,
+create a custom application class:
+
+```python
+# src/my_idp_service/app.py
+from pyfly.core import pyfly_application
+
+
+@pyfly_application(
+    name="my-idp-service",
+    scan_packages=[
+        "my_idp_service",              # Your own beans
+        "fireflyframework_intellidoc",  # IntelliDoc beans
+    ],
+)
+class MyIDPApp:
+    pass
+```
+
+```python
+# src/my_idp_service/main.py
+from contextlib import asynccontextmanager
+
+from pyfly.core import PyFlyApplication
+from pyfly.web.adapters.starlette.app import create_app
+
+from my_idp_service.app import MyIDPApp
+
+_pyfly = PyFlyApplication(MyIDPApp)
+
+
+@asynccontextmanager
+async def _lifespan(app):
+    _pyfly._route_metadata = getattr(app.state, "pyfly_route_metadata", [])
+    _pyfly._docs_enabled = getattr(app.state, "pyfly_docs_enabled", False)
+    _pyfly._host = str(_pyfly.config.get("pyfly.web.host", "0.0.0.0"))
+    _pyfly._port = int(_pyfly.config.get("pyfly.web.port", 8080))
+    await _pyfly.startup()
+    yield
+    await _pyfly.shutdown()
+
+
+app = create_app(
+    title="My IDP Service",
+    version="0.1.0",
+    context=_pyfly.context,
+    lifespan=_lifespan,
+)
+```
+
+Update `pyfly.yaml`:
+```yaml
+pyfly:
+  app:
+    module: my_idp_service.main:app
+```
+</details>
 
 The service starts on `http://localhost:8080`. Verify with:
 
